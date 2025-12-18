@@ -5,6 +5,11 @@
 │   │   ├── banks
 │   │   │   └── page.tsx
 │   │   ├── components
+│   │   │   ├── builder
+│   │   │   │   ├── EditorCanvas.tsx
+│   │   │   │   ├── EditorSidebar.tsx
+│   │   │   │   └── StudentPreview.tsx
+│   │   │   ├── ClientLayout.tsx
 │   │   │   ├── QuestionBuilder.tsx
 │   │   │   ├── QuizCard.tsx
 │   │   │   └── Sidebar.tsx
