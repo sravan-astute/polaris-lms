@@ -94,7 +94,9 @@ export default function QuestionBuilder({
 
   const handleFinalSave = (status: "DRAFT" | "PUBLISHED") => {
     if (!question.text.trim()) return alert("Question text is required.");
+    if (onSave) {
     onSave({ ...question, status });
+    }
   };
 
   return (
