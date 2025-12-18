@@ -3,25 +3,27 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# 1. Copy dependencies definition
 COPY package*.json ./
 
-# 2. Install dependencies
+# Install dependencies
 RUN npm install
 
-# 3. Copy Prisma schema and generate client (Crucial for DB)
+# Generate Prisma Client
 COPY prisma ./prisma/
 RUN npx prisma generate
 
-# 4. Copy the rest of the backend code
+# Copy source code
 COPY . .
 
-# 5. Build the NestJS app
+# Build the app
 RUN npm run build
 
-# 6. Expose the port (Cloud Run uses 8080 by default)
+# 🔍 DEBUG: Show us exactly where the file is (prints to build logs)
+RUN echo " listing dist folder structure:" && ls -R dist
+
+# Expose port
 EXPOSE 8080
 ENV PORT=8080
 
-# 7. Start the server
-CMD ["node", "dist/main"]
+# 🚀 SMART START: Check both possible locations for main.js
+CMD ["sh", "-c", "if [ -f dist/main.js ]; then node dist/main.js; else node dist/src/main.js; fi"]
