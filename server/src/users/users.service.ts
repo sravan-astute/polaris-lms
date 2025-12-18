@@ -6,9 +6,28 @@ import { User, Prisma } from '@prisma/client';
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: Prisma.UserCreateInput): Promise<User> {
-    return this.prisma.user.create({ data });
-  }
+  async create(createUserDto: any) { 
+  
+  // 1. Use "Astute Verse" as the default Organization
+  const orgName = createUserDto.organizationName || "Astute Verse";
+
+  // 2. Create User AND Organization in one step
+  return this.prisma.user.create({
+    data: {
+      email: createUserDto.email,
+      password: createUserDto.password, 
+      fullName: createUserDto.fullName,
+      role: 'ADMIN', // Force the first user to be an Admin
+      organization: {
+        create: {
+          name: orgName,
+          // This converts "Astute Verse" -> "astute-verse" for the URL
+          slug: orgName.toLowerCase().replace(/ /g, '-'), 
+        }
+      }
+    },
+  });
+}
 
   // 👇 ADDED THIS METHOD
   async findAll(): Promise<User[]> { 
