@@ -1,31 +1,43 @@
+// server/src/users/users.service.ts
+
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { User, Prisma } from '@prisma/client';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async create(createUserDto: any) { 
-  
-  const orgName = createUserDto.organizationName || "Astute Verse";
+    // 1. Professional Extraction: Get domain from email automatically
+    // Example: "sravan.k@astuteverse.com" -> "astuteverse.com"
+    const emailDomain = createUserDto.email.split('@')[1]; 
+    
+    // 2. Determine Organization Name
+    // Use provided name OR capitalize the domain (e.g., "Astuteverse")
+    const orgName = createUserDto.organizationName || 
+                    (emailDomain.split('.')[0].charAt(0).toUpperCase() + emailDomain.split('.')[0].slice(1));
 
-  return this.prisma.user.create({
-    data: {
-      email: createUserDto.email,
-      password: createUserDto.password, 
-      fullName: createUserDto.fullName,
-      role: 'ADMIN', 
-      organization: {
-        create: {
-          name: orgName,
+    return this.prisma.user.create({
+      data: {
+        email: createUserDto.email,
+        password: createUserDto.password, 
+        fullName: createUserDto.fullName,
+        role: 'ADMIN', 
+        
+        // 3. Create Organization with ALL required fields
+        organization: {
+          create: {
+            name: orgName,
+            domain: emailDomain, // ✅ Fixes "Argument domain is missing"
+          }
         }
-      }
-    } as any, // <--- THIS LITTLE TRICK SILENCES THE RED LINE
-  });
-}
+      } as any, // Keeps TypeScript happy while running against cloud DB
+    });
+  }
 
-  // 👇 ADDED THIS METHOD
+  // --- Standard Lookups ---
+
   async findAll(): Promise<User[]> { 
     return this.prisma.user.findMany();
   }
