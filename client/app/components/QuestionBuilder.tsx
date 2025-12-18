@@ -26,7 +26,7 @@ export interface QuestionData {
 }
 
 interface QuestionBuilderProps {
-  quizId: string;  
+  quizId?: string;  
   onSave: (question: QuestionData) => void;
   onCancel: () => void;
   initialData?: QuestionData;
