@@ -1,6 +1,9 @@
 # server/Dockerfile
 FROM node:18-alpine
 
+# 1. FIX: Install OpenSSL (Required for Prisma on Alpine Linux)
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 COPY package*.json ./
@@ -8,8 +11,10 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-# Generate Prisma Client
+# Copy Prisma folder
 COPY prisma ./prisma/
+
+# Generate Prisma Client (Re-builds the engine for Alpine)
 RUN npx prisma generate
 
 # Copy source code
@@ -18,12 +23,9 @@ COPY . .
 # Build the app
 RUN npm run build
 
-# 🔍 DEBUG: Show us exactly where the file is (prints to build logs)
-RUN echo " listing dist folder structure:" && ls -R dist
-
 # Expose port
 EXPOSE 8080
 ENV PORT=8080
 
-# 🚀 SMART START: Check both possible locations for main.js
+# Start the app (using the smart check)
 CMD ["sh", "-c", "if [ -f dist/main.js ]; then node dist/main.js; else node dist/src/main.js; fi"]
