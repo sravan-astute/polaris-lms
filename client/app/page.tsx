@@ -1,65 +1,81 @@
-import Image from "next/image";
+'use client';
+
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const router = useRouter();
+
+  const handleLogin = async (role: 'STUDENT' | 'TEACHER') => {
+    // 1. Create the Fake Token based on which button you clicked
+    const userEmail = role === 'STUDENT' ? 'jane@canvas.edu' : 'prof@canvas.edu';
+    const userName = role === 'STUDENT' ? 'Jane Doe' : 'Professor Smith';
+    const rolesClaim = role === 'STUDENT' 
+      ? ["http://purl.imsglobal.org/vocab/lis/v2/membership#Learner"]
+      : ["http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor"];
+
+    // Construct a fake JWT payload
+    const payload = {
+      email: userEmail,
+      name: userName,
+      iss: "https://canvas.test",
+      "https://purl.imsglobal.org/spec/lti/claim/roles": rolesClaim,
+      "https://purl.imsglobal.org/spec/lti/claim/context": { title: "Biology 101" }
+    };
+
+    // Encode it simply (in a real app, this is signed crypto, but our backend parser handles simple base64 for dev if we want, 
+    // BUT since our backend expects a signed JWT string, we will send the PRE-MADE tokens we used in PowerShell)
+    
+    // We will use the exact same hardcoded tokens from the PowerShell script to keep it simple:
+    const studentToken = "fakeheader.eyJlbWFpbCI6ImphbmVAY2FudmFzLmVkdSIsIm5hbWUiOiJKYW5lIERvZSIsImlzcyI6Imh0dHBzOi8vY2FudmFzLnRlc3QiLCJodHRwczovL3B1cmwuaW1zZ2xvYmFsLm9yZy9zcGVjL2x0aS9jbGFpbS9yb2xlcyI6WyJodHRwOi8vcHVybC5pbXNnbG9iYWwub3JnL3ZvY2FiL2xpcy92Mi9tZW1iZXJzaGlwI0xlYXJuZXIiXSwiaHR0cHM6Ly9wdXJsLmltc2dsb2JhbC5vcmcvc3BlYy9sdGkvY2xhaW0vY29udGV4dCI6eyJ0aXRsZSI6IkJpb2xvZ3kgMTAxIn19.fakesignature";
+    
+    const teacherToken = "fakeheader.eyJlbWFpbCI6ImphbmVAY2FudmFzLmVkdSIsIm5hbWUiOiJQcm9mZXNzb3IgU21pdGgiLCJpc3MiOiJodHRwczovL2NhbnZhcy50ZXN0IiwiaHR0cHM6Ly9wdXJsLmltc2dsb2JhbC5vcmcvc3BlYy9sdGkvY2xhaW0vcm9sZXMiOlsiaHR0cDovL3B1cmwuaW1zZ2xvYmFsLm9yZy92b2NhYi9saXMvdjIvbWVtYmVyc2hpcCNJbnN0cnVjdG9yIl0sImh0dHBzOi8vcHVybC5pbXNnbG9iYWwub3JnL3NwZWMvbHRpL2NsYWltL2NvbnRleHQiOnsidGl0bGUiOiJCaW9sb2d5IDEwMSJ9fQ==.fakesignature";
+
+    const tokenToSend = role === 'STUDENT' ? studentToken : teacherToken;
+
+    // 2. Send it to the Backend
+    // ... inside handleLogin ...
+    try {
+      const response = await fetch('http://localhost:3000/lti/launch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_token: tokenToSend }),
+        credentials: 'include' // 👈 Essential: Accepts the cookie!
+      });
+
+      if (response.ok) {
+         console.log("Login successful. Redirecting...");
+         // NOW we move the user manually
+         router.push('/dashboard');
+      } else {
+        alert("Login failed!");
+      }
+
+    } catch (e) {
+      console.error(e);
+      alert("Error connecting to server");
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-gray-900 text-white">
+      <h1 className="text-4xl font-bold mb-8">🚀 Polaris Engine Dev Launchpad</h1>
+      <p className="mb-8 text-gray-400">Simulate an LTI Launch from Canvas</p>
+      
+      <div className="flex gap-4">
+        <button 
+          onClick={() => handleLogin('STUDENT')}
+          className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-bold transition"
+        >
+          🎓 Launch as Jane (Student)
+        </button>
+
+        <button 
+          onClick={() => handleLogin('TEACHER')}
+          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold transition"
+        >
+          👩‍🏫 Launch as Prof (Teacher)
+        </button>
+      </div>
+    </main>
   );
 }

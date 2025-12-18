@@ -1,4 +1,5 @@
-// server/prisma/schema.prisma
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -9,33 +10,144 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- 1. ORGANIZATION (Tenant) ---
 model Organization {
-  id               String   @id @default(uuid())
-  name             String
-  domain           String   @unique
-  lti_consumer_key String?
-  lti_secret       String?
-  created_at       DateTime @default(now())
+  id        String   @id @default(uuid())
+  name      String
+  domain    String   @unique // e.g., "polaris.edu"
+  
+  users     User[]
+  quizzes   Quiz[]
+  questions Question[] // 👈 Organization owns the Item Bank
 
-  users            User[]   // Relation to Users
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("organizations")
 }
 
+// --- 2. USERS (Teachers/Admins) ---
 model User {
-  id              String        @id @default(uuid())
-  lti_user_id     String?       @unique
-  email           String        @unique
-  password        String?       // <--- The new Password field!
-  full_name       String?
-  role            String        // "admin", "teacher", "student"
+  id             String       @id @default(uuid())
+  email          String       @unique
+  password       String?      // Nullable if using SSO later
+  fullName       String       @map("full_name")
+  role           Role         @default(TEACHER)
   
-  organization_id String?
-  organization    Organization? @relation(fields: [organization_id], references: [id])
-  
-  // Future Relations (Commented out for now)
-  // grades          Grade[]
-  // attempts        Attempt[]
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  quizzes          Quiz[]       @relation("CreatedQuizzes")
+  createdQuestions Question[]   @relation("CreatedQuestions")
+
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
   @@map("users")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+// --- 3. QUESTIONS (The Item Bank) ---
+model Question {
+  id             String   @id @default(uuid())
+  
+  // --- Content ---
+  text           String   // The Question Prompt (Markdown/LaTeX supported)
+  type           String   // MULTIPLE_CHOICE, SHORT_ANSWER, TRUE_FALSE
+  
+  // --- Math Specifics ---
+  gradeLevels    String[] // 👈 CHANGED: Array ["3", "4"] (Multi-grade support)
+  standards      String[] // 👈 CHANGED: Array ["3.NBT.A.1"] (Multi-standard support)
+  
+  // --- Metadata ---
+  subject        String   // MATH, ELA, SCIENCE
+  difficulty     String   // EASY, MEDIUM, HARD
+  bloomsTaxonomy String?  // REMEMBER, APPLY, etc.
+  dokLevel       String?  // LEVEL_1, LEVEL_2, etc.
+  
+  // --- Media & Accessibility ---
+  mediaUrl       String?  // URL to image/video
+  mediaType      String?  // IMAGE, VIDEO, AUDIO
+  mediaAltText   String?  // 👈 NEW: For screen readers (Accessibility)
+
+  // --- Pedagogy ---
+  tags           String[] // ["fractions", "midterm"]
+  calculator     Boolean  @default(false) // 👈 NEW: Is calculator allowed?
+  
+  // --- Relations ---
+  options        Option[] 
+  explanation    String?  // General solution/rationale
+  status         String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+
+  // --- Ownership ---
+  organizationId String   @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  
+  creatorId      String   @map("creator_id")
+  creator        User     @relation("CreatedQuestions", fields: [creatorId], references: [id])
+  
+  quizzes        QuizQuestion[] 
+  
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("questions")
+}
+
+// --- 4. OPTIONS (Answers) ---
+model Option {
+  id         String   @id @default(uuid())
+  text       String
+  isCorrect  Boolean  @map("is_correct")
+  feedback   String?  // Distractor Rationale (Why is this wrong?)
+  
+  questionId String   @map("question_id")
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("options")
+}
+
+// --- 5. QUIZZES (Assessments) ---
+model Quiz {
+  id             String   @id @default(uuid())
+  title          String
+  description    String?
+  status         String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  accessCode     String?  @unique @map("access_code") // e.g. "X7K-9P2"
+
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  creatorId      String       @map("creator_id")
+  creator        User         @relation("CreatedQuizzes", fields: [creatorId], references: [id])
+
+  questions      QuizQuestion[]
+
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("quizzes")
+}
+
+// --- 6. JOIN TABLE (Quiz <-> Questions) ---
+// This handles the Many-to-Many relation and allows ordering
+model QuizQuestion {
+  id         String   @id @default(uuid())
+  
+  quizId     String   @map("quiz_id")
+  quiz       Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  
+  questionId String   @map("question_id")
+  question   Question @relation(fields: [questionId], references: [id])
+  
+  order      Int      @default(0) // Position in the quiz (1, 2, 3...)
+  points     Int      @default(1) // Override points for this specific quiz
+
+  @@unique([quizId, questionId]) // Prevent adding same question twice to one quiz
+  @@map("quiz_questions")
 }

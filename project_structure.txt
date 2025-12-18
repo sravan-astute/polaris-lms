@@ -1,0 +1,137 @@
+├── client
+│   ├── app
+│   │   ├── analytics
+│   │   │   └── page.tsx
+│   │   ├── banks
+│   │   │   └── page.tsx
+│   │   ├── components
+│   │   │   ├── QuestionBuilder.tsx
+│   │   │   ├── QuizCard.tsx
+│   │   │   └── Sidebar.tsx
+│   │   ├── context
+│   │   │   └── ThemeContext.tsx
+│   │   ├── dashboard
+│   │   │   └── page.tsx
+│   │   ├── login
+│   │   │   └── page.tsx
+│   │   ├── media
+│   │   │   └── page.tsx
+│   │   ├── quizzes
+│   │   │   ├── [id]
+│   │   │   │   └── page.tsx
+│   │   │   └── new
+│   │   │       └── page.tsx
+│   │   ├── settings
+│   │   │   └── page.tsx
+│   │   ├── standards
+│   │   │   └── page.tsx
+│   │   ├── favicon.ico
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── components
+│   │   └── ui
+│   │       ├── button.tsx
+│   │       └── card.tsx
+│   ├── lib
+│   │   └── utils.ts
+│   ├── public
+│   │   ├── file.svg
+│   │   ├── globe.svg
+│   │   ├── next.svg
+│   │   ├── vercel.svg
+│   │   └── window.svg
+│   ├── types
+│   │   └── index.ts
+│   ├── .gitignore
+│   ├── components.json
+│   ├── eslint.config.mjs
+│   ├── next-env.d.ts
+│   ├── next.config.ts
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── postcss.config.mjs
+│   ├── README.md
+│   └── tsconfig.json
+├── server
+│   ├── prisma
+│   │   ├── migrations
+│   │   │   ├── 20251215110857_init
+│   │   │   │   └── migration.sql
+│   │   │   ├── 20251215121144_add_password
+│   │   │   │   └── migration.sql
+│   │   │   ├── 20251215130340_add_lti_tables
+│   │   │   │   └── migration.sql
+│   │   │   ├── 20251216083943_init_dynamic_roles
+│   │   │   │   └── migration.sql
+│   │   │   ├── 20251216092303_fix_relations
+│   │   │   │   └── migration.sql
+│   │   │   ├── 20251216115033_add_questions
+│   │   │   │   └── migration.sql
+│   │   │   └── migration_lock.toml
+│   │   ├── schema.prisma
+│   │   └── seed.ts
+│   ├── src
+│   │   ├── auth
+│   │   │   ├── auth.controller.spec.ts
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── auth.module.ts
+│   │   │   ├── auth.service.spec.ts
+│   │   │   ├── auth.service.ts
+│   │   │   └── jwt.strategy.ts
+│   │   ├── lti
+│   │   │   ├── lti.controller.spec.ts
+│   │   │   ├── lti.controller.ts
+│   │   │   ├── lti.module.ts
+│   │   │   ├── lti.service.spec.ts
+│   │   │   └── lti.service.ts
+│   │   ├── organizations
+│   │   │   ├── dto
+│   │   │   │   ├── create-organization.dto.ts
+│   │   │   │   └── update-organization.dto.ts
+│   │   │   ├── entities
+│   │   │   │   └── organization.entity.ts
+│   │   │   ├── organizations.controller.ts
+│   │   │   ├── organizations.module.ts
+│   │   │   └── organizations.service.ts
+│   │   ├── prisma
+│   │   │   ├── prisma.module.ts
+│   │   │   └── prisma.service.ts
+│   │   ├── questions
+│   │   │   ├── questions.controller.ts
+│   │   │   ├── questions.module.ts
+│   │   │   └── questions.service.ts
+│   │   ├── quizzes
+│   │   │   ├── quizzes.controller.ts
+│   │   │   ├── quizzes.module.ts
+│   │   │   └── quizzes.service.ts
+│   │   ├── users
+│   │   │   ├── dto
+│   │   │   │   ├── create-user.dto.ts
+│   │   │   │   └── update-user.dto.ts
+│   │   │   ├── entities
+│   │   │   │   └── user.entity.ts
+│   │   │   ├── users.controller.ts
+│   │   │   ├── users.module.ts
+│   │   │   └── users.service.ts
+│   │   ├── app.controller.spec.ts
+│   │   ├── app.controller.ts
+│   │   ├── app.module.ts
+│   │   ├── app.service.ts
+│   │   └── main.ts
+│   ├── test
+│   │   ├── app.e2e-spec.ts
+│   │   └── jest-e2e.json
+│   ├── .env
+│   ├── .gitignore
+│   ├── .prettierrc
+│   ├── eslint.config.mjs
+│   ├── nest-cli.json
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── README.md
+│   ├── tsconfig.build.json
+│   └── tsconfig.json
+├── docker-compose.yml
+├── map_project.js
+└── project_structure.txt
