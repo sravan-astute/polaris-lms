@@ -26,13 +26,21 @@ export interface QuestionData {
 }
 
 interface QuestionBuilderProps {
-  quizId?: string;  
-  onSave: (question: QuestionData) => void;
-  onCancel: () => void;
+  quizId?: string;
   initialData?: QuestionData;
+  onCancel: () => void;              // Required (Both pages use this)
+  onQuestionAdded?: () => void;      // Optional (Used by Quiz Page)
+  onSave?: (question: QuestionData) => void; // Optional (Used by Bank Page)
 }
 
-export default function QuestionBuilder({ onSave, onCancel, initialData }: QuestionBuilderProps) {
+// ⚠️ ALSO UPDATE THE FUNCTION COMPONENT LINE BELOW IT:
+export default function QuestionBuilder({ 
+  quizId, 
+  initialData, 
+  onSave, 
+  onCancel, 
+  onQuestionAdded 
+}: QuestionBuilderProps) {
   const { theme } = useTheme();
   const [mode, setMode] = useState<'EDIT' | 'PREVIEW'>('EDIT');
   
