@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Lock, Mail, ArrowRight, Loader2 } from "lucide-react";
 
 // 1. ✅ Fix: Use the dynamic API URL, not localhost
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://polaris-backend-379760782242.us-east4.run.app';
+const API_URL = 'https://polaris-backend-379760782242.us-east4.run.app';
 
 export default function LoginPage() {
   const router = useRouter();
