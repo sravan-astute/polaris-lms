@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Lock, Mail, ArrowRight, Loader2 } from "lucide-react";
 
+// 1. ✅ Fix: Use the dynamic API URL, not localhost
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -16,40 +19,33 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("http://localhost:4000/auth/login", {
+      // 2. ✅ Fix: Use the API_URL variable here
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
-      if (!res.ok) throw new Error("Invalid credentials");
-
       const data = await res.json();
 
-      // 🚨 DEBUG LOG: Check your browser console (F12) to see exactly what the server sent
-      console.log("📦 LOGIN RESPONSE:", data);
+      if (!res.ok) throw new Error(data.message || "Invalid credentials");
 
-      // 🛡️ ROBUST TOKEN FINDER
-      // This fixes the "Bearer undefined" bug by checking all possible names
       const token = data.access_token || data.accessToken || data.token;
 
       if (!token) {
-        console.error("❌ TOKEN MISSING. Server sent:", data);
         toast.error("Login Error: Server did not send a valid token.");
         return;
       }
 
-      // 1. Save Token to LocalStorage
-      // We save it purely as the string (no "Bearer" prefix here)
       localStorage.setItem("token", token);
       
-      // 2. Save Role
       const userRole = data.role || data.user?.role || "AUTHOR"; 
       localStorage.setItem("role", userRole);
 
-      toast.success(`Welcome back, ${userRole}!`);
+      // Set cookie for middleware access if needed
+      document.cookie = `token=${token}; path=/; max-age=86400`; // Expires in 1 day
 
-      // 3. Go to Dashboard (or Item Bank directly to test)
+      toast.success(`Welcome back!`);
       router.push("/dashboard");
 
     } catch (err) {
@@ -85,7 +81,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-gray-900 text-sm"
-                placeholder="admin@polaris.edu"
+                placeholder="name@company.com"
                 required
               />
             </div>
@@ -114,11 +110,18 @@ export default function LoginPage() {
             {isLoading ? <Loader2 className="animate-spin" size={18} /> : <>Sign In <ArrowRight size={18} /></>}
           </button>
 
-          <div className="text-center pt-2">
-            <p className="text-xs text-gray-400">
-              Demo Credentials: <span className="font-mono text-gray-600 bg-gray-100 px-1 py-0.5 rounded">admin@polaris.edu</span> / <span className="font-mono text-gray-600 bg-gray-100 px-1 py-0.5 rounded">password123</span>
-            </p>
+          {/* 3. ✅ Fix: Added the Sign Up Link */}
+          <div className="mt-6 text-center text-sm text-gray-500">
+            Don't have an account?{' '}
+            <button 
+                type="button" 
+                onClick={() => router.push('/signup')} 
+                className="text-indigo-600 font-bold hover:underline"
+            >
+                Sign Up
+            </button>
           </div>
+
         </form>
       </div>
     </div>
