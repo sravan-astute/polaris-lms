@@ -22,7 +22,7 @@ export default function SignupPage() {
       const res = await fetch(`${apiUrl}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify({ email, password, fullName: name, organizationName: "Astute Verse" }),
       });
 
       if (!res.ok) {

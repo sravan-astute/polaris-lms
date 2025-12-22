@@ -1,17 +1,23 @@
-import { Controller, Get, Post, Body, Param, Delete, Patch, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Patch, Query, UseGuards, Request } from '@nestjs/common';
 import { QuestionsService } from './questions.service';
 import { Prisma } from '@prisma/client';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CreateQuestionDto } from './dto/create-question.dto'; // 👈 IMPORT THE DTO
 
 @Controller('questions')
 export class QuestionsController {
   constructor(private readonly questionsService: QuestionsService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Body() createQuestionDto: any) {
-    // Pass explicit dummy IDs (would be JWT user in prod)
-    const DUMMY_USER_ID = "00000000-0000-0000-0000-000000000000";
-    const DUMMY_ORG_ID = "11111111-1111-1111-1111-111111111111";
-    return this.questionsService.create(createQuestionDto, DUMMY_USER_ID, DUMMY_ORG_ID);
+  create(@Body() createQuestionDto: CreateQuestionDto, @Request() req: any) {
+    // 1. Get Real User ID from JWT
+    const userId = req.user.userId || req.user.sub;
+    
+    // 2. We pass 'undefined' for the fallback Org ID. 
+    // Your Service layer (questions.service.ts) already looks up the 
+    // real Organization ID from the User table, so we don't need to hardcode it here.
+    return this.questionsService.create(createQuestionDto, userId, undefined);
   }
 
   @Get()
@@ -22,24 +28,17 @@ export class QuestionsController {
     @Query('grade') grade?: string,
     @Query('search') search?: string,
   ) {
-    // Build Dynamic Query
     const where: Prisma.QuestionWhereInput = {};
 
-    if (subject && subject !== 'ALL') {
-        where.subject = subject;
-    }
-
-    if (grade && grade !== 'ALL') {
-        // Since gradeLevels is an array, we use 'has'
-        where.gradeLevels = { has: grade };
-    }
-
+    if (subject && subject !== 'ALL') where.subject = subject;
+    // Note: Ensure gradeLevels is treated as an array in your schema
+    if (grade && grade !== 'ALL') where.gradeLevels = { has: grade };
+    
     if (search) {
-        // 🔍 SEARCH LOGIC: Text OR Tags OR Standard
         where.OR = [
             { text: { contains: search, mode: 'insensitive' } },
-            { tags: { has: search } }, // Searches inside the tags array
-            { standards: { has: search } }
+            { tags: { has: search } },
+            { standards: { has: search } } // If standards is an array
         ];
     }
 
@@ -52,14 +51,21 @@ export class QuestionsController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    // You might need to add findOne to service if not there
-    // return this.questionsService.findOne(id);
-    return {}; // Placeholder if service doesn't have it yet
+    return this.questionsService.findOne(id);
+  }
+  
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateQuestionDto: CreateQuestionDto, @Request() req: any) {
+    const userId = req.user.userId || req.user.sub;
+    
+    // Reuse the create logic (Upsert pattern) but include the ID so it updates instead of creates
+    return this.questionsService.create({ ...updateQuestionDto, id }, userId, undefined);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   remove(@Param('id') id: string) {
-    // Add remove method to service if needed
-    return {}; 
+    return this.questionsService.remove(id);
   }
 }

@@ -8,11 +8,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: "SUPER_SECRET_KEY_CHANGE_LATER", // Must match AuthModule
+      secretOrKey: "POLARIS_SECRET_KEY", // 👈 HARDCODED: The Lock
     });
   }
 
   async validate(payload: any) {
-    return { userId: payload.sub, username: payload.username, role: payload.role };
-  }
+    // 🚨 LOG 1: Did we even get here?
+    console.log("🔓 STRATEGY HIT! Token was valid. Payload received:", payload);
+    
+    // 🚨 LOG 2: Check the ID we are returning
+    const user = { userId: payload.sub, email: payload.email, role: payload.role };
+    console.log("👤 Returning User:", user);
+    
+    return user;
+}
 }

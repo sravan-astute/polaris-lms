@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 // 👇 Make sure this points to the ClientLayout wrapper
 import ClientLayout from "./components/ClientLayout";
+import { Toaster } from "sonner"; // 👈 You had the import...
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,6 +23,9 @@ export default function RootLayout({
         <ClientLayout>
           {children}
         </ClientLayout>
+        
+        {/* 👇 ...but you missed adding the component here! */}
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );

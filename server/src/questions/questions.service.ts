@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 
@@ -6,34 +6,31 @@ import { Prisma } from '@prisma/client';
 export class QuestionsService {
   constructor(private prisma: PrismaService) {}
 
-  // 🛠️ HELPER: Auto-creates Dummy User/Org if missing
-  private async ensureDefaults() {
-    const ORG_ID = "11111111-1111-1111-1111-111111111111";
-    const USER_ID = "00000000-0000-0000-0000-000000000000";
-
-    await this.prisma.organization.upsert({
-        where: { id: ORG_ID },
-        update: {},
-        create: { id: ORG_ID, name: "Polaris Demo School", domain: "polaris.edu" }
-    });
-
-    await this.prisma.user.upsert({
-        where: { id: USER_ID },
-        update: {},
-        create: { id: USER_ID, email: "admin@polaris.edu", fullName: "Demo Admin", organizationId: ORG_ID }
-    });
-
-    return { ORG_ID, USER_ID };
+  private generateCode() {
+    return 'ITEM-' + Math.random().toString(36).substring(2, 7).toUpperCase();
   }
 
-  async create(data: any, _userId: string, _orgId: string) {
-    const { USER_ID, ORG_ID } = await this.ensureDefaults();
-
-    // 1. CLEANUP: Separate relation fields and unneeded fields
-    // We remove 'points' (it's in the Quiz now) and 'id' (we check it separately)
-    const { options, tags, points, id, ...rest } = data; 
+  // 1. We still accept the arguments to match the Controller, but we will look up the REAL Org ID
+  async create(data: any, userId: string, orgIdFallback?: string) {
     
-    // 2. PARSE TAGS: (String "math, geometry" -> Array ["math", "geometry"])
+    // 🔍 STEP 1: Get the User and their Real Organization ID
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { organizationId: true }
+    });
+
+    // Safety Check: If user was deleted or has no org
+    if (!user || !user.organizationId) {
+        console.error("❌ SAVE FAILED: User or Organization not found for ID:", userId);
+        throw new BadRequestException("User must belong to an Organization to create items.");
+    }
+
+    const realOrgId = user.organizationId; // <--- WE USE THIS NOW
+
+    // 🔍 STEP 2: Prepare Data
+    const { id, options, tags, code, ...rest } = data;
+
+    // Parse Tags safely
     let tagsArray: string[] = [];
     if (typeof tags === 'string' && tags.length > 0) {
         tagsArray = tags.split(',').map((t: string) => t.trim());
@@ -41,75 +38,70 @@ export class QuestionsService {
         tagsArray = tags;
     }
 
-    // 3. DEFAULTS
-    const questionType = rest.type || "MULTIPLE_CHOICE";
+    const jsonPayload = { options: options || [] };
+    const itemCode = code && code.trim() !== '' ? code : this.generateCode();
 
-    // 4. PREPARE OPTION DATA (Common for Create and Update)
-    // We map the incoming options to the Prisma format
-    const optionsData = options.map((opt: any) => ({
-        text: opt.text || "",
-        isCorrect: !!opt.isCorrect,
-        feedback: opt.feedback || null,
-    }));
+    // Ensure status is a valid Enum string
+    const validStatus = rest.status || "DRAFT"; 
 
     try {
-        // 👉 SCENARIO A: UPDATE (If ID exists)
         if (id) {
-            console.log(`🔄 Updating Question: ${id}`);
+            // UPDATE
+            console.log(`📝 UPDATING Question: ${id}`);
             return await this.prisma.question.update({
                 where: { id },
                 data: {
                     ...rest,
-                    type: questionType,
+                    status: validStatus,
+                    code: itemCode, 
+                    type: rest.type || "MULTIPLE_CHOICE",
                     tags: tagsArray,
-                    // For relations in an update, we delete old options and re-create new ones
-                    // This ensures deleted options are actually removed.
-                    options: {
-                        deleteMany: {}, 
-                        create: optionsData,
-                    },
+                    data: jsonPayload,
                 },
-                include: { options: true },
             });
-        } 
-        
-        // 👉 SCENARIO B: CREATE (If ID is missing or null)
-        else {
-            console.log(`✨ Creating New Question`);
+        } else {
+            // CREATE
+            console.log(`✨ CREATING New Question for User: ${userId} in Org: ${realOrgId}`);
+            
             return await this.prisma.question.create({
                 data: {
                     ...rest,
-                    type: questionType,
+                    status: validStatus,
+                    code: itemCode,
+                    type: rest.type || "MULTIPLE_CHOICE",
                     tags: tagsArray,
-                    creatorId: USER_ID,
-                    organizationId: ORG_ID,
-                    options: {
-                        create: optionsData,
-                    },
+                    data: jsonPayload,
+                    
+                    // 🚨 THE CRITICAL FIX: Connect to the variables we validated above
+                    creator: { connect: { id: userId } },
+                    organization: { connect: { id: realOrgId } } 
                 },
-                include: { options: true },
             });
         }
-
     } catch (error) {
-        console.error("🔥 DATABASE ERROR:", error);
+        // 🚨 LOG THE REAL ERROR TO TERMINAL
+        console.error("🔥 DATABASE ERROR in QuestionsService:");
+        console.error(error); 
         throw error;
     }
   }
 
   async findAll(params: { where?: Prisma.QuestionWhereInput; skip?: number; take?: number }) {
     const { where, skip, take } = params;
-    
-    const data = await this.prisma.question.findMany({
+    return await this.prisma.question.findMany({
       skip,
       take,
       where,
-      include: { options: true }, 
       orderBy: { createdAt: 'desc' },
+      include: { creator: { select: { fullName: true } } }
     });
+  }
 
-    const total = await this.prisma.question.count({ where });
+  async findOne(id: string) {
+    return await this.prisma.question.findUnique({ where: { id } });
+  }
 
-    return { data, total };
+  async remove(id: string) {
+    return await this.prisma.question.delete({ where: { id } });
   }
 }

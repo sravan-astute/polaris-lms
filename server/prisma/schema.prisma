@@ -1,5 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// server/prisma/schema.prisma
 
 generator client {
   provider = "prisma-client-js"
@@ -10,15 +9,48 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- 1. ORGANIZATION (Tenant) ---
+// --- 0. ENUMS ---
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  CONTENT_MANAGER    // The Publisher
+  REVIEWER           // The Gatekeeper
+  CONTENT_DEVELOPER  // The Author
+  TEACHER
+  STUDENT
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  SHORT_ANSWER
+  MULTIPLE_SELECT
+  FILL_IN_THE_BLANK
+  MATCHING
+  MATH_RESPONSE
+  ORDERING
+}
+
+enum ContentStatus {
+  DRAFT               // Visible only to Author
+  PENDING_REVIEW      // Visible to Reviewer
+  CHANGES_REQUESTED   // Sent back to Author
+  APPROVED            // Ready for Manager
+  PUBLISHED           // Live for Students
+  ARCHIVED
+}
+
+// --- 1. ORGANIZATION ---
 model Organization {
   id        String   @id @default(uuid())
   name      String
-  domain    String   @unique // e.g., "polaris.edu"
+  domain    String   @unique
   
   users     User[]
   quizzes   Quiz[]
-  questions Question[] // 👈 Organization owns the Item Bank
+  questions Question[] 
+  passages  Passage[] // 👈 NEW: Organization owns the passages too
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -26,105 +58,130 @@ model Organization {
   @@map("organizations")
 }
 
-// --- 2. USERS (Teachers/Admins) ---
+// --- 2. USERS ---
 model User {
-  id             String       @id @default(uuid())
-  email          String       @unique
-  password       String?      // Nullable if using SSO later
-  fullName       String       @map("full_name")
-  role           Role         @default(TEACHER)
+  id             String        @id @default(uuid())
+  email          String        @unique
+  password       String?
+  fullName       String        @map("full_name")
+  role           Role          @default(TEACHER)
   
-  organizationId String       @map("organization_id")
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String        @map("organization_id")
+  organization   Organization  @relation(fields: [organizationId], references: [id])
 
-  quizzes          Quiz[]       @relation("CreatedQuizzes")
-  createdQuestions Question[]   @relation("CreatedQuestions")
+  // --- Relations ---
+  createdQuizzes    Quiz[]      @relation("CreatedQuizzes")
+  createdQuestions  Question[]  @relation("CreatedQuestions")
+  reviewedQuestions Question[]  @relation("ReviewedQuestions") 
+  approvedQuestions Question[]  @relation("ApprovedQuestions") 
 
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
   @@map("users")
 }
 
-enum Role {
-  ADMIN
-  TEACHER
-  STUDENT
+// --- 3. PASSAGES (New ELA Table) ---
+model Passage {
+  id          String   @id @default(uuid())
+  title       String
+  content     String   // The HTML rich text of the story
+  
+  // 👇 NEW: Media Support for Passages
+  mediaUrl    String?  @map("media_url") 
+
+  // ELA Metadata
+  genre       String?
+  lexile      String?  // e.g., "800L"
+  wordCount   Int?
+
+  // Relation: Belong to Org
+  organizationId String        @map("organization_id")
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+
+  // Relation: One passage has many questions
+  questions   Question[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("passages")
 }
 
-// --- 3. QUESTIONS (The Item Bank) ---
+// --- 4. QUESTIONS (The Item Bank) ---
 model Question {
   id             String   @id @default(uuid())
   
   // --- Content ---
-  text           String   // The Question Prompt (Markdown/LaTeX supported)
-  type           String   // MULTIPLE_CHOICE, SHORT_ANSWER, TRUE_FALSE
-  
-  // --- Math Specifics ---
-  gradeLevels    String[] // 👈 CHANGED: Array ["3", "4"] (Multi-grade support)
-  standards      String[] // 👈 CHANGED: Array ["3.NBT.A.1"] (Multi-standard support)
-  
-  // --- Metadata ---
-  subject        String   // MATH, ELA, SCIENCE
-  difficulty     String   // EASY, MEDIUM, HARD
-  bloomsTaxonomy String?  // REMEMBER, APPLY, etc.
-  dokLevel       String?  // LEVEL_1, LEVEL_2, etc.
-  
-  // --- Media & Accessibility ---
-  mediaUrl       String?  // URL to image/video
-  mediaType      String?  // IMAGE, VIDEO, AUDIO
-  mediaAltText   String?  // 👈 NEW: For screen readers (Accessibility)
+  text           String   // The Prompts
+  type           QuestionType
+  points         Int      @default(1)
+  code           String   @unique @default(cuid()) 
 
-  // --- Pedagogy ---
-  tags           String[] // ["fractions", "midterm"]
-  calculator     Boolean  @default(false) // 👈 NEW: Is calculator allowed?
+  // --- Data Container ---
+  data           Json?
+
+  // --- Math/Meta ---
+  gradeLevels    String[]      
+  standards      String[]      
+  subject        String        
+  difficulty     String        
+  bloomsTaxonomy String?
+  dokLevel       String?
   
+  // --- Media ---
+  mediaUrl       String?
+  mediaType      String?
+  mediaAltText   String?
+  calculator     Boolean      @default(false)
+
+  tags           String[]      
+  explanation    String?
+
+  // --- Workflow Status ---
+  status         ContentStatus @default(DRAFT)
+
+  // --- ELA PARENT LINK ---
+  passageId      String?       @map("passage_id") // 👈 NEW: Link to Passage Table
+  passage        Passage?      @relation(fields: [passageId], references: [id])
+
   // --- Relations ---
-  options        Option[] 
-  explanation    String?  // General solution/rationale
-  status         String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
-
-  // --- Ownership ---
-  organizationId String   @map("organization_id")
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String        @map("organization_id")
+  organization   Organization  @relation(fields: [organizationId], references: [id])
   
-  creatorId      String   @map("creator_id")
-  creator        User     @relation("CreatedQuestions", fields: [creatorId], references: [id])
+  // 1. Who wrote it?
+  creatorId      String        @map("creator_id")
+  creator        User          @relation("CreatedQuestions", fields: [creatorId], references: [id])
+  
+  // 2. Who reviewed it?
+  reviewedById   String?       @map("reviewed_by_id")
+  reviewedBy     User?         @relation("ReviewedQuestions", fields: [reviewedById], references: [id])
+
+  // 3. Who published it?
+  approvedById   String?       @map("approved_by_id")
+  approvedBy     User?         @relation("ApprovedQuestions", fields: [approvedById], references: [id])
   
   quizzes        QuizQuestion[] 
   
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
 
   @@map("questions")
 }
 
-// --- 4. OPTIONS (Answers) ---
-model Option {
-  id         String   @id @default(uuid())
-  text       String
-  isCorrect  Boolean  @map("is_correct")
-  feedback   String?  // Distractor Rationale (Why is this wrong?)
-  
-  questionId String   @map("question_id")
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-
-  @@map("options")
-}
-
-// --- 5. QUIZZES (Assessments) ---
+// --- 5. QUIZZES ---
 model Quiz {
   id             String   @id @default(uuid())
   title          String
   description    String?
-  status         String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
-  accessCode     String?  @unique @map("access_code") // e.g. "X7K-9P2"
+  status         String   @default("DRAFT") 
+  accessCode     String?  @unique @map("access_code")
 
-  organizationId String       @map("organization_id")
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String        @map("organization_id")
+  organization   Organization  @relation(fields: [organizationId], references: [id])
 
-  creatorId      String       @map("creator_id")
-  creator        User         @relation("CreatedQuizzes", fields: [creatorId], references: [id])
+  creatorId      String        @map("creator_id")
+  creator        User          @relation("CreatedQuizzes", fields: [creatorId], references: [id])
 
   questions      QuizQuestion[]
 
@@ -134,8 +191,7 @@ model Quiz {
   @@map("quizzes")
 }
 
-// --- 6. JOIN TABLE (Quiz <-> Questions) ---
-// This handles the Many-to-Many relation and allows ordering
+// --- 6. JOIN TABLE ---
 model QuizQuestion {
   id         String   @id @default(uuid())
   
@@ -145,9 +201,9 @@ model QuizQuestion {
   questionId String   @map("question_id")
   question   Question @relation(fields: [questionId], references: [id])
   
-  order      Int      @default(0) // Position in the quiz (1, 2, 3...)
-  points     Int      @default(1) // Override points for this specific quiz
+  order      Int      @default(0)
+  points     Int      @default(1)
 
-  @@unique([quizId, questionId]) // Prevent adding same question twice to one quiz
+  @@unique([quizId, questionId]) 
   @@map("quiz_questions")
 }

@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useMemo } from "react";
 import { 
-  Image as ImageIcon, Bold, Italic, Code, Sigma, 
-  Trash2, Plus, CheckCircle, HelpCircle, AlertCircle, FileText, Upload
+  Image as ImageIcon, CheckCircle, AlertCircle, FileText, Upload, Trash2, Plus, HelpCircle, 
+  Circle, Square, ArrowRightLeft, ListOrdered
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "../../context/ThemeContext";
 import { QuestionData, Option } from "../QuestionBuilder";
+import RichTextEditor from "../RichTextEditor"; 
 
 interface EditorCanvasProps {
   question: QuestionData;
@@ -18,94 +19,218 @@ interface EditorCanvasProps {
   onRemoveOption: (id: string) => void;
 }
 
+// --- HELPER: Compress Image to < 300KB ---
+const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 1200; 
+                const scaleSize = MAX_WIDTH / img.width;
+                const width = (scaleSize < 1) ? MAX_WIDTH : img.width;
+                const height = (scaleSize < 1) ? img.height * scaleSize : img.height;
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                resolve(compressedBase64);
+            };
+        };
+    });
+};
+
 export default function EditorCanvas({ 
   question, onChange, onOptionChange, onSetCorrect, onAddOption, onRemoveOption 
 }: EditorCanvasProps) {
   const { theme } = useTheme();
-  
-  // Refs for Text and File Input
-  const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- MARKDOWN HELPER ---
-  const insertMarkdown = (syntax: string) => {
-    if (!textAreaRef.current) return;
-    const start = textAreaRef.current.selectionStart;
-    const end = textAreaRef.current.selectionEnd;
-    const text = question.text;
-    const before = text.substring(0, start);
-    const selected = text.substring(start, end);
-    const after = text.substring(end);
-    
-    onChange("text", `${before}${syntax}${selected}${syntax}${after}`);
-    setTimeout(() => textAreaRef.current?.focus(), 0);
-  };
-
-  // --- IMAGE UPLOAD LOGIC (Base64) ---
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // 1. Validate Image Type
-    if (!file.type.startsWith("image/")) {
-        alert("Please upload an image file.");
-        return;
+    if (!file.type.startsWith("image/")) { alert("Please upload an image."); return; }
+    try {
+        const compressedBase64 = await compressImage(file);
+        onChange("mediaUrl", compressedBase64);
+        if (!question.mediaAltText) onChange("mediaAltText", file.name.split('.')[0]);
+    } catch (error) {
+        console.error("Upload failed", error);
+        alert("Failed to upload image.");
     }
-
-    // 2. Convert to Base64
-    const reader = new FileReader();
-    reader.onloadend = () => {
-        const base64String = reader.result as string;
-        // Save the actual image data to state
-        onChange("mediaUrl", base64String);
-        
-        // Auto-fill Alt Text if empty
-        if (!question.mediaAltText) {
-            onChange("mediaAltText", file.name);
-        }
-    };
-    reader.readAsDataURL(file);
   };
 
-  const triggerUpload = () => {
-    fileInputRef.current?.click();
-  };
+  const triggerUpload = () => fileInputRef.current?.click();
+
+  // --- RENDERERS FOR DIFFERENT TYPES ---
+
+  const renderMultipleChoiceOrSelect = (isMulti: boolean) => (
+    <>
+        {question.options.map((option, index) => (
+            <div key={option.id} className={`flex items-start gap-4 p-4 rounded-lg border transition-all group
+                ${option.isCorrect 
+                    ? `bg-green-500/5 border-green-500 ring-1 ring-green-500` 
+                    : `${theme.border} hover:bg-black/5`}`}>
+                
+                <div className="flex flex-col items-center gap-2 pt-3">
+                    <span className="font-bold opacity-40 text-xs">{String.fromCharCode(65 + index)}</span>
+                    <button
+                        onClick={() => onSetCorrect(option.id)}
+                        className={`w-6 h-6 rounded flex items-center justify-center transition-all 
+                            ${option.isCorrect ? "bg-green-600 border-green-600 text-white" : "border border-gray-300 hover:border-green-400"}
+                            ${isMulti ? "rounded-md" : "rounded-full"}`} // Square for Multi, Circle for Single
+                    >
+                        {option.isCorrect && <CheckCircle size={14} />}
+                    </button>
+                </div>
+
+                <div className="flex-1 space-y-2">
+                    <RichTextEditor 
+                        compact={true} 
+                        content={option.text}
+                        onChange={(html) => onOptionChange(option.id, "text", html)}
+                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                    />
+                    <div className="flex items-center gap-2 mt-1">
+                        <HelpCircle size={12} className="opacity-30" />
+                        <input 
+                            type="text"
+                            value={option.feedback || ""}
+                            onChange={(e) => onOptionChange(option.id, "feedback", e.target.value)}
+                            placeholder={option.isCorrect ? "Why correct?" : "Why incorrect?"}
+                            className={`flex-1 text-xs bg-transparent outline-none opacity-50 focus:opacity-100 placeholder:italic ${theme.text}`}
+                        />
+                    </div>
+                </div>
+
+                <button onClick={() => onRemoveOption(option.id)} className="mt-3 opacity-0 group-hover:opacity-40 hover:!opacity-100 hover:text-red-500 transition-all">
+                    <Trash2 size={16} />
+                </button>
+            </div>
+        ))}
+
+        <Button variant="outline" size="sm" onClick={onAddOption} className={`w-full border-dashed opacity-50 hover:opacity-100 ${theme.border} ${theme.text}`}>
+            <Plus size={16} className="mr-2" /> Add Option
+        </Button>
+    </>
+  );
+
+  const renderMatching = () => (
+    <>
+        <div className="flex justify-between px-4 text-xs font-bold opacity-50 uppercase mb-2">
+            <span>Premise (Left)</span>
+            <span>Match (Right)</span>
+        </div>
+        {question.options.map((option, index) => (
+            <div key={option.id} className={`grid grid-cols-[1fr_auto_1fr_auto] gap-4 items-start p-4 rounded-lg border ${theme.border}`}>
+                
+                {/* Left Side */}
+                <div className="flex-1">
+                    <RichTextEditor 
+                        compact={true} 
+                        content={option.text} 
+                        onChange={(html) => onOptionChange(option.id, "text", html)}
+                        placeholder={`Item ${index + 1}`}
+                    />
+                </div>
+
+                {/* Arrow Icon */}
+                <div className="pt-3 opacity-30"><ArrowRightLeft size={16}/></div>
+
+                {/* Right Side */}
+                <div className="flex-1">
+                    <input 
+                        className={`w-full p-2 border rounded ${theme.input} text-sm`}
+                        placeholder={`Match for Item ${index + 1}`}
+                        value={option.matchText || ""}
+                        onChange={(e) => onOptionChange(option.id, "matchText", e.target.value)}
+                    />
+                </div>
+
+                <button onClick={() => onRemoveOption(option.id)} className="pt-3 opacity-30 hover:text-red-500 hover:opacity-100">
+                    <Trash2 size={16} />
+                </button>
+            </div>
+        ))}
+        <Button variant="outline" size="sm" onClick={onAddOption} className={`w-full border-dashed opacity-50 hover:opacity-100 ${theme.border} ${theme.text}`}>
+            <Plus size={16} className="mr-2" /> Add Matching Pair
+        </Button>
+    </>
+  );
+
+  const renderOrdering = () => (
+    <>
+        {question.options.map((option, index) => (
+            <div key={option.id} className={`flex items-center gap-4 p-3 rounded-lg border ${theme.border}`}>
+                <div className="bg-gray-100 w-8 h-8 flex items-center justify-center rounded font-bold text-gray-500 text-sm">
+                    {index + 1}
+                </div>
+                <div className="flex-1">
+                    <input 
+                        className={`w-full p-2 bg-transparent outline-none font-medium ${theme.text}`}
+                        placeholder={`Step ${index + 1}`}
+                        value={option.text}
+                        onChange={(e) => onOptionChange(option.id, "text", e.target.value)}
+                    />
+                </div>
+                <button onClick={() => onRemoveOption(option.id)} className="opacity-30 hover:text-red-500 hover:opacity-100">
+                    <Trash2 size={16} />
+                </button>
+            </div>
+        ))}
+        <Button variant="outline" size="sm" onClick={onAddOption} className={`w-full border-dashed opacity-50 hover:opacity-100 ${theme.border} ${theme.text}`}>
+            <Plus size={16} className="mr-2" /> Add Step
+        </Button>
+    </>
+  );
+
+  const renderShortAnswerOrFill = () => (
+    <div className={`p-6 rounded-lg border border-dashed text-center opacity-70 ${theme.border}`}>
+        <FileText className="mx-auto mb-2 opacity-50" />
+        <p className="font-medium mb-2 text-sm">
+            {question.type === 'FILL_IN_THE_BLANK' ? 'Enter the sentence with blanks (e.g. "2 + [2] = 4")' : 'Enter rubric or keywords for grading.'}
+        </p>
+        <textarea 
+            className={`w-full p-3 border rounded outline-none ${theme.input}`}
+            placeholder="Type here..."
+            rows={3}
+            value={question.options[0]?.text || ""}
+            onChange={(e) => onOptionChange(question.options[0]?.id || "rubric", "text", e.target.value)}
+        />
+    </div>
+  );
 
   return (
-    <div className="w-full space-y-6"> 
+    <div className="w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"> 
         
         {/* 1. Prompt Editor */}
         <section className={`rounded-xl shadow-sm border overflow-hidden ${theme.paper} ${theme.border}`}>
-            {/* Toolbar */}
-            <div className={`px-4 py-2 border-b flex items-center gap-2 bg-black/5 ${theme.border}`}>
-                <button onClick={() => insertMarkdown('**')} className="p-1.5 rounded hover:bg-black/10" title="Bold"><Bold size={16}/></button>
-                <button onClick={() => insertMarkdown('*')} className="p-1.5 rounded hover:bg-black/10" title="Italic"><Italic size={16}/></button>
-                <button onClick={() => insertMarkdown('`')} className="p-1.5 rounded hover:bg-black/10" title="Code"><Code size={16}/></button>
-                <div className="w-px h-4 bg-current opacity-20 mx-1"></div>
-                <button onClick={() => insertMarkdown('$')} className="p-1.5 rounded hover:bg-black/10 flex items-center gap-1 text-xs font-bold" title="Math"><Sigma size={14}/> Math</button>
-                <div className="flex-1"></div>
-                <span className={`text-[10px] font-bold opacity-40 uppercase`}>Markdown Supported</span>
-            </div>
-            
             <div className="p-6 space-y-4">
-                <textarea
-                    ref={textAreaRef}
-                    className={`w-full min-h-[160px] p-4 border rounded-lg outline-none resize-y font-medium leading-relaxed ${theme.input}`}
-                    placeholder="Type your question here... (Use $...$ for Math LaTeX)"
-                    value={question.text}
-                    onChange={(e) => onChange("text", e.target.value)}
+                <div className="flex justify-between items-center mb-1">
+                     <label className="text-xs font-bold opacity-50 uppercase tracking-wider">Question Stem</label>
+                     <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2 py-1 rounded">
+                        {question.points} Point{question.points !== 1 && 's'}
+                     </span>
+                </div>
+                <RichTextEditor 
+                    content={question.text}
+                    onChange={(html) => onChange("text", html)}
+                    placeholder="Type your question here... (Select text & click Σ for Math)"
+                    compact={false} 
                 />
                 
-                {/* Media Input Section */}
+                {/* Media Input */}
                 <div className={`flex gap-4 items-start p-4 rounded-lg border ${theme.border}`}>
-                     <div className="pt-2 opacity-50">
-                        <ImageIcon size={24} />
-                     </div>
+                     <div className="pt-2 opacity-50"><ImageIcon size={24} /></div>
                      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="font-bold opacity-70 mb-1 block text-sm">Image / Video URL</label>
                             <div className="flex gap-2">
-                                {/* Text Input for URL */}
                                 <input 
                                     type="text" 
                                     className={`flex-1 p-2 border rounded outline-none ${theme.input}`}
@@ -113,26 +238,14 @@ export default function EditorCanvas({
                                     value={question.mediaUrl || ""}
                                     onChange={(e) => onChange("mediaUrl", e.target.value)}
                                 />
-                                
-                                {/* Hidden File Input */}
-                                <input 
-                                    type="file" 
-                                    ref={fileInputRef} 
-                                    onChange={handleFileUpload} 
-                                    className="hidden" 
-                                    accept="image/*" 
-                                />
-                                
-                                {/* Upload Button */}
-                                <Button size="icon" variant="outline" className={theme.text} onClick={triggerUpload} title="Upload from Computer">
+                                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+                                <Button size="icon" variant="outline" className={theme.text} onClick={triggerUpload} title="Upload">
                                     <Upload size={16} />
                                 </Button>
                             </div>
-                            
-                            {/* Tiny Preview text if loaded */}
                             {question.mediaUrl && question.mediaUrl.startsWith("data:") && (
                                 <div className="mt-1 text-[10px] text-green-600 font-medium flex items-center gap-1">
-                                    <CheckCircle size={10} /> Image loaded from computer
+                                    <CheckCircle size={10} /> Image loaded
                                 </div>
                             )}
                         </div>
@@ -151,80 +264,24 @@ export default function EditorCanvas({
             </div>
         </section>
 
-        {/* 2. Answers Editor */}
+        {/* 2. Answers Editor (Dynamic) */}
         <section className={`rounded-xl shadow-sm border overflow-hidden ${theme.paper} ${theme.border}`}>
-            <div className={`px-6 py-3 border-b opacity-90 ${theme.border} bg-black/5`}>
+            <div className={`px-6 py-3 border-b opacity-90 ${theme.border} bg-black/5 flex items-center gap-2`}>
                 <h3 className="font-bold text-sm uppercase tracking-wide opacity-70">
-                    {question.type === 'SHORT_ANSWER' ? 'Rubric / Grading' : 'Answer Choices'}
+                    {['SHORT_ANSWER', 'FILL_IN_THE_BLANK'].includes(question.type) ? 'Answer Key / Rubric' : 'Answer Choices'}
                 </h3>
             </div>
             <div className="p-6 space-y-4">
-                {question.type === 'SHORT_ANSWER' && (
-                     <div className={`p-6 rounded-lg border border-dashed text-center opacity-70 ${theme.border}`}>
-                        <FileText className="mx-auto mb-2 opacity-50" />
-                        <p className="font-medium mb-2">Student will type their response.</p>
-                        <textarea 
-                            className={`w-full p-3 border rounded outline-none ${theme.input}`}
-                            placeholder="Enter grading keywords (e.g. 'photosynthesis', 'sunlight')..."
-                            rows={3}
-                        />
-                     </div>
-                )}
-                {(question.type === 'MULTIPLE_CHOICE' || question.type === 'TRUE_FALSE') && (
-                    <>
-                        {question.options.map((option, index) => (
-                            <div key={option.id} className={`flex items-start gap-4 p-4 rounded-lg border transition-all group
-                                ${option.isCorrect 
-                                    ? `bg-green-500/5 border-green-500 ring-1 ring-green-500` 
-                                    : `${theme.border} hover:bg-black/5`}`}>
-                                
-                                <div className="flex flex-col items-center gap-2 pt-1">
-                                    <span className="font-bold opacity-40 text-xs">{String.fromCharCode(65 + index)}</span>
-                                    <button
-                                        onClick={() => onSetCorrect(option.id)}
-                                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all 
-                                            ${option.isCorrect ? "bg-green-600 border-green-600 text-white" : "border-gray-300 hover:border-green-400"}`}
-                                    >
-                                        {option.isCorrect && <CheckCircle size={12} />}
-                                    </button>
-                                </div>
-
-                                <div className="flex-1 space-y-2">
-                                    <input
-                                        type="text"
-                                        readOnly={question.type === 'TRUE_FALSE'}
-                                        value={option.text}
-                                        onChange={(e) => onOptionChange(option.id, "text", e.target.value)}
-                                        placeholder={`Answer Choice (LaTeX supported)`}
-                                        className={`w-full font-medium bg-transparent border-b border-transparent focus:border-indigo-500 outline-none pb-1 placeholder:opacity-40`}
-                                    />
-                                    <div className="flex items-center gap-2">
-                                        <HelpCircle size={12} className="opacity-30" />
-                                        <input 
-                                            type="text"
-                                            value={option.feedback || ""}
-                                            onChange={(e) => onOptionChange(option.id, "feedback", e.target.value)}
-                                            placeholder={option.isCorrect ? "Why correct?" : "Why incorrect? (Distractor rationale)"}
-                                            className={`flex-1 text-xs bg-transparent outline-none opacity-50 focus:opacity-100 placeholder:italic`}
-                                        />
-                                    </div>
-                                </div>
-
-                                {question.type === 'MULTIPLE_CHOICE' && (
-                                    <button onClick={() => onRemoveOption(option.id)} className="opacity-0 group-hover:opacity-40 hover:!opacity-100 hover:text-red-500 transition-all">
-                                        <Trash2 size={16} />
-                                    </button>
-                                )}
-                            </div>
-                        ))}
-
-                        {question.type === 'MULTIPLE_CHOICE' && (
-                            <Button variant="outline" size="sm" onClick={onAddOption} className={`w-full border-dashed opacity-50 hover:opacity-100 ${theme.border} ${theme.text}`}>
-                                <Plus size={16} className="mr-2" /> Add Option
-                            </Button>
-                        )}
-                    </>
-                )}
+                {question.type === 'MULTIPLE_CHOICE' || question.type === 'TRUE_FALSE' 
+                    ? renderMultipleChoiceOrSelect(false) 
+                    : question.type === 'MULTIPLE_SELECT' 
+                    ? renderMultipleChoiceOrSelect(true)
+                    : question.type === 'MATCHING'
+                    ? renderMatching()
+                    : question.type === 'ORDERING'
+                    ? renderOrdering()
+                    : renderShortAnswerOrFill()
+                }
             </div>
         </section>
 
@@ -236,11 +293,10 @@ export default function EditorCanvas({
                 </h3>
             </div>
             <div className="p-6">
-                <textarea
-                    className={`w-full min-h-[100px] p-4 border rounded-lg outline-none ${theme.input}`}
+                <RichTextEditor 
+                    content={question.explanation}
+                    onChange={(html) => onChange("explanation", html)}
                     placeholder="Private notes for other teachers..."
-                    value={question.explanation}
-                    onChange={(e) => onChange("explanation", e.target.value)}
                 />
             </div>
         </section>

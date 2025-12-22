@@ -1,64 +1,155 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname } from "next/navigation"; 
 import { 
-  LayoutDashboard, FileQuestion, BookOpen, BarChart3, Settings, 
-  Upload, LogOut
+  LayoutDashboard, 
+  FileQuestion, 
+  Library, 
+  BarChart2, 
+  Settings, 
+  LogOut,
+  Upload,
+  CheckCircle,
 } from "lucide-react";
-import { useTheme } from "../context/ThemeContext";
 
-const NAV_ITEMS = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "All Quizzes", href: "/quizzes", icon: BookOpen },
-  { label: "Item Bank", href: "/banks", icon: FileQuestion },
-  { label: "Grading", href: "/grading", icon: BarChart3 },
-  { label: "Import / Export", href: "/import", icon: Upload },
-  { label: "Settings", href: "/settings", icon: Settings },
-];
+// 1. UPDATE TYPES to match your Prisma Seed
+type UserRole = 
+  | "SUPER_ADMIN" 
+  | "ADMIN" 
+  | "CONTENT_MANAGER" 
+  | "CONTENT_DEVELOPER" 
+  | "REVIEWER"
+  | "TEACHER" 
+  | "STUDENT";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { theme } = useTheme();
+  const [role, setRole] = useState<UserRole | null>(null);
+
+  // 2. Get Role from LocalStorage
+  useEffect(() => {
+    // We assume your Login page saves this as 'role'
+    // If it saved it as 'userRole', change this key below to 'userRole'
+    const storedRole = localStorage.getItem("role") as UserRole;
+    setRole(storedRole); 
+  }, []);
+
+  // 3. Define Menu Items with EXACT Database Roles
+  const allMenuItems = [
+    { 
+        name: "Dashboard", 
+        path: "/dashboard", 
+        icon: LayoutDashboard,
+        // Everyone sees Dashboard
+        roles: ["SUPER_ADMIN", "ADMIN", "CONTENT_MANAGER", "CONTENT_DEVELOPER", "REVIEWER", "TEACHER"] 
+    },
+    { 
+        name: "Item Bank", 
+        path: "/dashboard/item-bank", 
+        icon: Library,
+        // Authors (Developers) & Managers & Admins
+        roles: ["SUPER_ADMIN", "ADMIN", "CONTENT_MANAGER", "CONTENT_DEVELOPER"] 
+    },
+    { 
+        name: "Review Queue", 
+        path: "/dashboard/review", 
+        icon: CheckCircle,
+        // Reviewers, Managers, and Admins
+        roles: ["SUPER_ADMIN", "ADMIN", "CONTENT_MANAGER", "REVIEWER"] 
+    },
+    { 
+        name: "Assessments", 
+        path: "/dashboard/assessments", 
+        icon: FileQuestion,
+        roles: ["SUPER_ADMIN", "ADMIN", "TEACHER"] 
+    },
+    { 
+        name: "Grading", 
+        path: "/dashboard/grading", 
+        icon: BarChart2,
+        roles: ["SUPER_ADMIN", "ADMIN", "TEACHER"] 
+    },
+    { 
+        name: "Import / Export", 
+        path: "/dashboard/import", 
+        icon: Upload,
+        roles: ["SUPER_ADMIN", "ADMIN", "CONTENT_MANAGER"] 
+    },
+    { 
+        name: "Settings", 
+        path: "/dashboard/settings", 
+        icon: Settings,
+        roles: ["SUPER_ADMIN", "ADMIN"] 
+    },
+  ];
+
+  // 4. Filter Logic
+  const visibleItems = allMenuItems.filter(item => 
+    role && item.roles.includes(role)
+  );
+
+  const isActive = (path: string) => {
+    if (path === "/dashboard" && pathname === "/dashboard") return true;
+    return path !== "/dashboard" && pathname?.startsWith(path);
+  };
 
   return (
-    <div className={`w-64 h-screen flex flex-col border-r transition-colors duration-300 ${theme.sidebar} ${theme.text} ${theme.border}`}>
-      
-      {/* Branding */}
-      <div className={`p-6 h-16 border-b flex items-center gap-2 ${theme.border}`}>
-           <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white ${theme.accent.split(' ')[0]}`}>
-             P
-           </div>
-           <h1 className="text-xl font-bold tracking-tight">Polaris</h1>
+    <div className="w-64 h-screen bg-white border-r flex flex-col flex-shrink-0 sticky top-0">
+      {/* BRANDING */}
+      <div className="p-6 flex items-center gap-3">
+        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">
+          P
+        </div>
+        <div>
+            <span className="font-bold text-xl tracking-tight text-gray-900 block leading-none">Polaris</span>
+            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                {role ? role.replace('_', ' ') : "Loading..."}
+            </span>
+        </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map((item) => {
-          const isActive = pathname.startsWith(item.href);
-          return (
-            <Link 
-              key={item.href} 
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
-                ${isActive 
-                    ? `${theme.accent}` 
-                    : `hover:bg-black/5 opacity-70 hover:opacity-100`
-                }`}
-            >
-              <item.icon size={18} />
-              {item.label}
-            </Link>
-          );
-        })}
+      {/* NAVIGATION */}
+      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+        {visibleItems.length > 0 ? (
+            visibleItems.map((item) => {
+              const active = isActive(item.path);
+              return (
+                <Link 
+                  key={item.path} 
+                  href={item.path}
+                  className={`
+                    flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all
+                    ${active 
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" 
+                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                    }
+                  `}
+                >
+                  <item.icon size={20} className={active ? "text-white" : "text-gray-400"} />
+                  {item.name}
+                </Link>
+              );
+            })
+        ) : (
+            <div className="px-4 py-8 text-center text-gray-400 text-sm">
+                No menu items found for role: <br/><strong>{role || "Unknown"}</strong>
+            </div>
+        )}
       </nav>
 
-      {/* Footer (Simple Sign Out) */}
-      <div className={`p-4 border-t ${theme.border}`}>
-        <button className={`flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium opacity-70 hover:opacity-100 hover:bg-red-50 hover:text-red-600 transition-all`}>
-            <LogOut size={18} />
-            Sign Out
+      {/* FOOTER */}
+      <div className="p-4 border-t">
+        <button 
+          onClick={() => {
+            localStorage.clear();
+            window.location.href = "/login";
+          }}
+          className="flex items-center gap-3 px-4 py-3 w-full text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+        >
+          <LogOut size={20} />
+          Sign Out
         </button>
       </div>
     </div>

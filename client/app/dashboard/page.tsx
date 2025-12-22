@@ -1,96 +1,214 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import Sidebar from '../components/Sidebar';   // 👈 New
-import QuizCard from '../components/QuizCard'; // 👈 New
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { 
+  Library, 
+  FileQuestion, 
+  Users, 
+  TrendingUp, 
+  Plus, 
+  ArrowRight,
+  Clock,
+  CheckCircle2
+} from "lucide-react";
 
-export default function Dashboard() {
-  const router = useRouter();
-  const [quizzes, setQuizzes] = useState<any[]>([]);
+// API URL (Adjust if deployed)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+export default function DashboardPage() {
+  // --- STATE ---
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [stats, setStats] = useState({
+    totalQuestions: 0,
+    publishedQuestions: 0,
+    draftQuestions: 0,
+    totalQuizzes: 0, // Placeholder
+    totalStudents: 0 // Placeholder
+  });
 
+  // --- FETCH REAL DATA ---
   useEffect(() => {
-    // Basic Auth Check + Fetch
-    fetch('http://localhost:3000/lti/me', { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
-        if (!data.authenticated) router.push('/login');
-        else {
-          fetch('http://localhost:3000/quizzes')
-            .then(res => res.json())
-            .then(qData => {
-              setQuizzes(qData);
-              setLoading(false);
-            });
+    async function fetchDashboardData() {
+      try {
+        const token = localStorage.getItem('token');
+        
+        // 1. Fetch Questions to count them
+        const res = await fetch(`${API_URL}/questions`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+            const questions = await res.json();
+            if (Array.isArray(questions)) {
+                setStats(prev => ({
+                    ...prev,
+                    totalQuestions: questions.length,
+                    publishedQuestions: questions.filter((q: any) => q.status === 'PUBLISHED').length,
+                    draftQuestions: questions.filter((q: any) => q.status === 'DRAFT').length,
+                }));
+            }
         }
-      });
+      } catch (error) {
+        console.error("Dashboard load error:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDashboardData();
   }, []);
 
-  const filteredQuizzes = quizzes.filter(q => 
-    q.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
+  // --- RENDER ---
   return (
-    <div className="flex min-h-screen bg-gray-50 font-sans">
+    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       
-      {/* 👈 1. The Professional Sidebar */}
-      <Sidebar />
+      {/* 1. WELCOME HEADER */}
+      <div className="flex justify-between items-end">
+        <div>
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
+            <p className="text-gray-500 mt-2">Welcome back to Polaris. Here's what's happening today.</p>
+        </div>
+        <div className="flex gap-3">
+             <Link 
+                href="/dashboard/item-bank" 
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-sm transition-all"
+             >
+                <Plus size={18} /> New Item
+             </Link>
+        </div>
+      </div>
 
-      {/* 2. Main Workspace Area */}
-      <div className="flex-1 ml-64"> {/* ml-64 matches sidebar width */}
+      {/* 2. KEY METRICS GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         
-        {/* Top Header */}
-        <header className="bg-white border-b px-8 py-5 flex justify-between items-center sticky top-0 z-10">
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard Overview</h1>
-          <button 
-            onClick={() => router.push('/quizzes/new')} 
-            className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg font-bold shadow-md transition flex items-center gap-2"
-          >
-            + New Project
-          </button>
-        </header>
-
-        {/* Filters & Grid */}
-        <main className="p-8 max-w-7xl mx-auto">
-          
-          {/* Search Bar */}
-          <div className="mb-8 flex gap-4">
-            <div className="relative flex-1 max-w-lg">
-              <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
-              <input 
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-                placeholder="Search projects..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
+        {/* Card 1: Question Bank (REAL DATA) */}
+        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
+                    <Library size={24} />
+                </div>
+                <span className="text-xs font-bold px-2 py-1 bg-green-50 text-green-700 rounded-full">
+                    Live
+                </span>
             </div>
-            {/* Sort Dropdown (Visual Only for now) */}
-            <select className="border border-gray-300 rounded-lg px-4 bg-white text-gray-600">
-              <option>Sort by: Newest</option>
-              <option>Sort by: Name</option>
-            </select>
-          </div>
-
-          {/* Loading State */}
-          {loading && <div className="p-10 text-gray-500">⏳ Loading Content Library...</div>}
-
-          {/* Grid View */}
-          {!loading && filteredQuizzes.length === 0 ? (
-            <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-gray-300">
-              <p className="text-gray-400 mb-4">You haven't created any content yet.</p>
-              <button onClick={() => router.push('/quizzes/new')} className="text-purple-600 font-bold hover:underline">Start your first project</button>
+            <div className="text-3xl font-bold text-gray-900">{stats.totalQuestions}</div>
+            <p className="text-sm text-gray-500 mt-1">Items in Bank</p>
+            <div className="mt-4 pt-4 border-t border-gray-50 text-xs text-gray-400 flex gap-3">
+                <span>{stats.publishedQuestions} Published</span>
+                <span>•</span>
+                <span>{stats.draftQuestions} Drafts</span>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredQuizzes.map((quiz) => (
-                <QuizCard key={quiz.id} quiz={quiz} onNavigate={router.push} />
-              ))}
-            </div>
-          )}
+        </div>
 
-        </main>
+        {/* Card 2: Quizzes (Placeholder) */}
+        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-pink-50 text-pink-600 rounded-lg">
+                    <FileQuestion size={24} />
+                </div>
+            </div>
+            <div className="text-3xl font-bold text-gray-900">{stats.totalQuizzes}</div>
+            <p className="text-sm text-gray-500 mt-1">Active Quizzes</p>
+            <div className="mt-4 pt-4 border-t border-gray-50 text-xs text-gray-400">
+                0 Pending Grading
+            </div>
+        </div>
+
+        {/* Card 3: Students (Placeholder) */}
+        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+                    <Users size={24} />
+                </div>
+            </div>
+            <div className="text-3xl font-bold text-gray-900">{stats.totalStudents}</div>
+            <p className="text-sm text-gray-500 mt-1">Total Students</p>
+            <div className="mt-4 pt-4 border-t border-gray-50 text-xs text-gray-400">
+                Enrolled across 0 classes
+            </div>
+        </div>
+
+        {/* Card 4: Avg Score (Placeholder) */}
+        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-orange-50 text-orange-600 rounded-lg">
+                    <TrendingUp size={24} />
+                </div>
+            </div>
+            <div className="text-3xl font-bold text-gray-900">--%</div>
+            <p className="text-sm text-gray-500 mt-1">Average Score</p>
+            <div className="mt-4 pt-4 border-t border-gray-50 text-xs text-gray-400">
+                Based on recent quizzes
+            </div>
+        </div>
+      </div>
+
+      {/* 3. MAIN CONTENT SPLIT */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* LEFT COLUMN: Quick Actions */}
+        <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-50 flex justify-between items-center">
+                    <h3 className="font-semibold text-gray-900">Quick Actions</h3>
+                </div>
+                <div className="p-6 grid grid-cols-2 gap-4">
+                    <Link href="/dashboard/item-bank" className="group p-4 border rounded-xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg group-hover:scale-110 transition-transform">
+                                <Plus size={18} />
+                            </div>
+                            <span className="font-semibold text-gray-900">Create Question</span>
+                        </div>
+                        <p className="text-sm text-gray-500">Add a new item to your bank. Supports MCQ, Multiple Response, and more.</p>
+                    </Link>
+
+                    <Link href="/dashboard/quizzes/new" className="group p-4 border rounded-xl hover:border-pink-200 hover:bg-pink-50/30 transition-all cursor-pointer">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-pink-100 text-pink-600 rounded-lg group-hover:scale-110 transition-transform">
+                                <FileQuestion size={18} />
+                            </div>
+                            <span className="font-semibold text-gray-900">Build Quiz</span>
+                        </div>
+                        <p className="text-sm text-gray-500">Combine items into an assessment and assign it to students.</p>
+                    </Link>
+                </div>
+            </div>
+
+             {/* Recent Activity Placeholder */}
+             <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+                <div className="px-6 py-4 border-b border-gray-50">
+                    <h3 className="font-semibold text-gray-900">Recent Activity</h3>
+                </div>
+                <div className="p-8 text-center text-gray-500 text-sm">
+                    <Clock className="mx-auto mb-2 opacity-20" size={32} />
+                    <p>No recent activity logs found.</p>
+                </div>
+            </div>
+        </div>
+
+        {/* RIGHT COLUMN: System Status */}
+        <div className="space-y-6">
+             <div className="bg-indigo-900 text-white rounded-xl p-6 shadow-lg relative overflow-hidden">
+                {/* Decoration */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+                
+                <h3 className="font-bold text-lg mb-2">Polaris Engine</h3>
+                <p className="text-indigo-200 text-sm mb-6">Your system is running optimally. Database connection is active.</p>
+                
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3 text-sm text-indigo-100">
+                        <CheckCircle2 size={16} className="text-green-400" />
+                        <span>Database Connected (Neon)</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-indigo-100">
+                        <CheckCircle2 size={16} className="text-green-400" />
+                        <span>API Online (v1.0.0)</span>
+                    </div>
+                </div>
+             </div>
+        </div>
       </div>
     </div>
   );

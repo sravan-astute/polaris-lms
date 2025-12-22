@@ -96,6 +96,7 @@ interface ThemeContextType {
   themeKey: ThemeKey;
   setThemeKey: (key: ThemeKey) => void;
   theme: Theme;
+  mode: 'light' | 'dark'; // 👈 Added this for compatibility
   fontStep: number;
   setFontStep: (step: number) => void;
   adjustFont: (dir: -1 | 1) => void;
@@ -105,12 +106,10 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // 1. Set default state immediately so it's never undefined
   const [themeKey, setThemeKey] = useState<ThemeKey>('LIGHT');
   const [fontStep, setFontStep] = useState(2); 
   const [mounted, setMounted] = useState(false);
 
-  // 2. Load from localStorage only after mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('polaris-theme') as ThemeKey;
     const savedFont = localStorage.getItem('polaris-font');
@@ -121,7 +120,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setMounted(true);
   }, []);
 
-  // 3. Save to localStorage when changed
   useEffect(() => {
     if (!mounted) return;
     localStorage.setItem('polaris-theme', themeKey);
@@ -137,19 +135,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  // 🧠 DERIVE MODE AUTOMATICALLY
+  // Light = Light, Sepia, Blue
+  // Dark = Dark, Contrast, Forest
+  const mode: 'light' | 'dark' = ['DARK', 'CONTRAST', 'FOREST'].includes(themeKey) ? 'dark' : 'light';
+
   const value = {
     themeKey,
     setThemeKey,
     theme: THEMES[themeKey],
+    mode, // 👈 Pass it here
     fontStep,
     setFontStep,
     adjustFont,
     currentFontClass: FONT_SIZES[fontStep]
   };
 
-  // 4. FIX: Always render the Provider. 
-  // We use `suppressHydrationWarning` on the div because the className might differ 
-  // between server (default) and client (localStorage) for a split second.
   return (
     <ThemeContext.Provider value={value}>
       <div 

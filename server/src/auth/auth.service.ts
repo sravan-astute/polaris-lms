@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'; // 👈 Added Import
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -10,13 +10,26 @@ export class AuthService {
     private jwtService: JwtService
   ) {}
 
-  // 1. Verify User Credentials
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.findOne(email);
     
-    // Check if user exists AND has a password (LTI users don't have passwords)
+    // Check if user exists AND has a password
     if (user && user.password) {
-      const isMatch = await bcrypt.compare(pass, user.password);
+      
+      // A: Try standard Bcrypt comparison (For real users)
+      let isMatch = false;
+      try {
+        isMatch = await bcrypt.compare(pass, user.password);
+      } catch (e) {
+        // If password is not a hash (e.g. seed data), bcrypt throws error. Ignore it.
+      }
+
+      // B: FALLBACK - Check Plain Text (For Seed Data like "password123")
+      if (!isMatch && user.password === pass) {
+        isMatch = true;
+        console.log(`⚠️ WARNING: User ${email} logged in with PLAIN TEXT password.`);
+      }
+
       if (isMatch) {
         // Return user without password
         const { password, ...result } = user;
@@ -26,7 +39,6 @@ export class AuthService {
     return null;
   }
 
-  // 2. Sign In (Called by Controller)
   async signIn(email: string, pass: string) {
     const user = await this.validateUser(email, pass);
     if (!user) {
@@ -35,20 +47,18 @@ export class AuthService {
     return this.login(user);
   }
 
-  // 3. Generate Token
   async login(user: any) {
-    // Safely extract role name
-    const roleName = user.role?.name || 'STUDENT';
+    const roleName = user.role || 'STUDENT'; 
 
     const payload = { 
-      username: user.email, 
+      email: user.email, // 👈 CHANGED 'username' TO 'email' TO MATCH STRATEGY
       sub: user.id, 
       role: roleName 
     };
     
     return {
       access_token: this.jwtService.sign(payload),
-      role: roleName // 👈 ADD THIS LINE!
+      role: roleName 
     };
   }
 }

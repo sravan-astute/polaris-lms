@@ -1,38 +1,44 @@
-// server/src/users/users.service.ts
-
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { User } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async create(createUserDto: any) { 
-    // 1. Professional Extraction: Get domain from email automatically
-    // Example: "sravan.k@astuteverse.com" -> "astuteverse.com"
+    // 1. Get domain from email (e.g., "astuteverse.com")
     const emailDomain = createUserDto.email.split('@')[1]; 
     
-    // 2. Determine Organization Name
-    // Use provided name OR capitalize the domain (e.g., "Astuteverse")
+    // 2. Determine Organization Name (e.g., "Astuteverse")
     const orgName = createUserDto.organizationName || 
                     (emailDomain.split('.')[0].charAt(0).toUpperCase() + emailDomain.split('.')[0].slice(1));
 
+    // 3. Encrypt Password
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+
+    // 4. Create User with Smart Logic
     return this.prisma.user.create({
       data: {
         email: createUserDto.email,
-        password: createUserDto.password, 
+        password: hashedPassword, 
         fullName: createUserDto.fullName,
         role: 'ADMIN', 
         
-        // 3. Create Organization with ALL required fields
+        // ✅ SMART LOGIC: Join existing OR Create new
         organization: {
-          create: {
-            name: orgName,
-            domain: emailDomain, // ✅ Fixes "Argument domain is missing"
-          }
-        }
-      } as any, // Keeps TypeScript happy while running against cloud DB
+          connectOrCreate: {
+            where: {
+              domain: emailDomain, // Check if an Org with this domain exists
+            },
+            create: {
+              name: orgName,
+              domain: emailDomain, // If not found, create it!
+            },
+          },
+        },
+      } as any,
     });
   }
 

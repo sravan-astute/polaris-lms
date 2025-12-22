@@ -1,22 +1,30 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import cookieParser from 'cookie-parser';
+import { ValidationPipe } from '@nestjs/common';
+import { Request, Response, NextFunction } from 'express'; // 👈 Import types
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  app.use(cookieParser());
+  // Enable CORS so your frontend can talk to the backend
+  app.enableCors();
 
-  // BAZOOKA FIX: Allow any origin for development
-  app.enableCors({
-    origin: true, // 👈 Auto-reflects the request origin
-    credentials: true,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  // 👇 DEBUG MIDDLEWARE (Now Type-Safe)
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path.includes('/questions') && req.method === 'POST') {
+        console.log("------------------------------------------------");
+        console.log("🕵️‍♂️ NETWORK DEBUGGER");
+        console.log(`📨 Method: ${req.method} ${req.originalUrl}`);
+        console.log(`🔑 Auth Header Received: '${req.headers.authorization}'`);
+        console.log("------------------------------------------------");
+    }
+    next();
   });
+  // 👆 END DEBUG MIDDLEWARE
 
-  // Force Listen on IPv4 (Fixes Windows localhost issues)
-  const port = process.env.PORT || 3000;
-  await app.listen(port, '0.0.0.0');
-  console.log(`🚀 Application is running on: ${await app.getUrl()}`);
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+
+  await app.listen(4000);
+  console.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();

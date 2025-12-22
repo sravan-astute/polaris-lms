@@ -3,18 +3,21 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
-import { JwtStrategy } from './jwt.strategy'; // <--- We are importing the new file
+import { PassportModule } from '@nestjs/passport';
+import { JwtStrategy } from './jwt.strategy';
 
 @Module({
   imports: [
-    UsersModule, 
+    UsersModule,
+    PassportModule,
     JwtModule.register({
       global: true,
-      secret: "SUPER_SECRET_KEY_CHANGE_LATER",
-      signOptions: { expiresIn: '1d' },
+      secret: "POLARIS_SECRET_KEY", // 👈 HARDCODED: The Key Maker
+      signOptions: { expiresIn: '60m' },
     }),
   ],
-  providers: [AuthService, JwtStrategy], // <--- We added JwtStrategy here
   controllers: [AuthController],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService],
 })
 export class AuthModule {}

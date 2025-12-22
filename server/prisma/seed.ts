@@ -4,41 +4,81 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting seed...');
+  console.log('🌱 Starting "Permanent User" Seed...');
 
-  // 1. Create the Organization
-  const orgId = "11111111-1111-1111-1111-111111111111";
+  // 1. Ensure the Organization Exists
+  const orgId = "11111111-1111-1111-1111-111111111111"; // Fixed ID for stability
   
   const org = await prisma.organization.upsert({
     where: { id: orgId },
     update: {},
     create: {
       id: orgId,
-      name: 'Polaris Demo School',
-      domain: 'polaris.edu',
+      name: 'Astuteverse',
+      domain: 'astuteverse.com',
     },
   });
 
-  console.log(`✅ Organization created: ${org.name}`);
+  console.log(`✅ Organization Ready: ${org.name}`);
 
-  // 2. Create the Admin User
-  const adminId = "00000000-0000-0000-0000-000000000000";
-  const hashedPassword = await bcrypt.hash('password123', 10);
+  // 2. Define the Team
+  const passwordHash = await bcrypt.hash('password123', 10); // Default password for everyone
 
-  const admin = await prisma.user.upsert({
-    where: { id: adminId },
-    update: {},
-    create: {
-      id: adminId,
-      email: 'admin@polaris.edu',
-      fullName: 'Polaris Admin',
-      password: hashedPassword,
-      role: Role.ADMIN, // 👈 Uses the new Enum, not a table relation
-      organizationId: org.id,
+  const users = [
+    // --- SUPER ADMINS ---
+    {
+      email: 'niranjan.k@astuteverse.com',
+      name: 'Niranjan K',
+      role: Role.SUPER_ADMIN
     },
-  });
+    {
+      email: 'sravan.k@astuteverse.com',
+      name: 'Sravan K',
+      role: Role.SUPER_ADMIN
+    },
+    // --- ADMIN ---
+    {
+      email: 'saravana.k@astuteverse.com',
+      name: 'Saravana K',
+      role: Role.ADMIN
+    },
+    // --- PUBLISHER (Content Manager) ---
+    {
+      email: 'sasimala@astuteverse.com',
+      name: 'Sasimala',
+      role: Role.CONTENT_MANAGER
+    },
+    // --- REVIEWER ---
+    {
+      email: 'mirunaalni.r@astuteverse.com',
+      name: 'Mirunaalni R',
+      role: Role.REVIEWER
+    },
+    // --- AUTHOR (Content Developer) ---
+    {
+      email: 'content@astuteverse.com',
+      name: 'Content Team',
+      role: Role.CONTENT_DEVELOPER
+    }
+  ];
 
-  console.log(`✅ Admin user created: ${admin.email}`);
+  // 3. Create/Restore Users Loop
+  for (const user of users) {
+    const upsertedUser = await prisma.user.upsert({
+      where: { email: user.email },
+      update: { role: user.role }, // Ensure role is correct if it changed
+      create: {
+        email: user.email,
+        fullName: user.name,
+        password: passwordHash,
+        role: user.role,
+        organizationId: org.id,
+      },
+    });
+    console.log(`👤 Verified User: ${upsertedUser.email} [${upsertedUser.role}]`);
+  }
+
+  console.log('✨ Seeding complete. You can now login.');
 }
 
 main()

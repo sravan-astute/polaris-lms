@@ -6,13 +6,14 @@ import { AuthModule } from './auth/auth.module';
 import { QuizzesModule } from './quizzes/quizzes.module';
 // 👇 IMPORT THE NEW MODULE
 import { QuestionsModule } from './questions/questions.module'; 
+import { PassagesModule } from './passages/passages.module';
 
 @Module({
   imports: [
     PrismaModule, 
     AuthModule, 
     QuizzesModule, 
-    QuestionsModule // 👈 REGISTER IT HERE
+    QuestionsModule, PassagesModule // 👈 REGISTER IT HERE
   ],
   controllers: [AppController],
   providers: [AppService],

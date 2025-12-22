@@ -18,7 +18,6 @@ export default function StudentPreview({ question, onBack }: StudentPreviewProps
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [deviceMode, setDeviceMode] = useState<'DESKTOP' | 'TABLET' | 'MOBILE'>('DESKTOP');
 
-  // Helper to determine container width based on device
   const getContainerWidth = () => {
       switch (deviceMode) {
           case 'MOBILE': return 'max-w-[375px]';
@@ -40,16 +39,12 @@ export default function StudentPreview({ question, onBack }: StudentPreviewProps
             </button>
 
             <div className="flex items-center gap-4">
-                {/* Device Toggles */}
                 <div className="flex bg-black/5 p-1 rounded-lg">
                     <button onClick={() => setDeviceMode('DESKTOP')} className={`p-1.5 rounded ${deviceMode === 'DESKTOP' ? 'bg-white shadow' : 'opacity-50'}`} title="Desktop View"><Monitor size={14}/></button>
                     <button onClick={() => setDeviceMode('TABLET')} className={`p-1.5 rounded ${deviceMode === 'TABLET' ? 'bg-white shadow' : 'opacity-50'}`} title="Tablet View"><Tablet size={14}/></button>
                     <button onClick={() => setDeviceMode('MOBILE')} className={`p-1.5 rounded ${deviceMode === 'MOBILE' ? 'bg-white shadow' : 'opacity-50'}`} title="Mobile View"><Smartphone size={14}/></button>
                 </div>
-
                 <div className="w-px h-4 bg-gray-300"></div>
-
-                {/* Answer Key Toggle */}
                 <label className="flex items-center gap-2 text-xs font-bold uppercase cursor-pointer select-none">
                     <input 
                         type="checkbox" 
@@ -66,18 +61,19 @@ export default function StudentPreview({ question, onBack }: StudentPreviewProps
         <div className={`mx-auto w-full transition-all duration-300 ${getContainerWidth()}`}>
             <div className={`p-8 rounded-xl shadow-lg border-t-4 border-indigo-500 ${theme.paper} ${theme.border}`}>
                 
-                {/* Question Header */}
+                {/* Header */}
                 <div className="flex justify-between items-start mb-6">
                     <span className="text-xs font-bold uppercase text-gray-400 tracking-wider">Question Preview</span>
                     <span className="text-xs font-bold bg-gray-100 px-2 py-1 rounded text-gray-500">{question.points} Points</span>
                 </div>
 
-                {/* 1. Question Text */}
-                <div className="mb-6 text-lg font-medium leading-relaxed whitespace-pre-wrap">
-                    {question.text || <span className="opacity-40 italic">Question text will appear here...</span>}
-                </div>
+                {/* 1. Question Text (RENDER HTML) */}
+                <div 
+                    className="mb-6 text-lg font-medium leading-relaxed prose prose-indigo max-w-none"
+                    dangerouslySetInnerHTML={{ __html: question.text || "<p class='opacity-40 italic'>Question text...</p>" }}
+                />
                 
-                {/* 2. Media Image - FIXED HERE 👇 */}
+                {/* 2. Media Image */}
                 {question.mediaUrl && (
                     <div className="mb-6 flex justify-center">
                         <img 
@@ -106,7 +102,6 @@ export default function StudentPreview({ question, onBack }: StudentPreviewProps
                     ) : (
                         question.options.map((opt, i) => {
                             const isSelected = selectedOptionId === opt.id;
-                            // Highlight logic
                             const showCorrect = showAnswerKey && opt.isCorrect;
                             const showIncorrect = showAnswerKey && !opt.isCorrect && isSelected;
 
@@ -126,10 +121,13 @@ export default function StudentPreview({ question, onBack }: StudentPreviewProps
                                         `}>
                                             {showCorrect ? <Check size={16} className="text-green-600"/> : String.fromCharCode(65 + i)}
                                         </div>
-                                        <div className="flex-1">{opt.text}</div>
+                                        {/* RENDER HTML OPTION */}
+                                        <div 
+                                            className="flex-1 prose prose-sm max-w-none pointer-events-none"
+                                            dangerouslySetInnerHTML={{ __html: opt.text }}
+                                        />
                                     </div>
                                     
-                                    {/* Feedback Display */}
                                     {showAnswerKey && opt.feedback && (
                                         <div className={`mt-1 ml-12 text-xs p-2 rounded 
                                             ${opt.isCorrect ? 'text-green-700 bg-green-100/50' : 'text-amber-700 bg-amber-100/50'}
@@ -144,7 +142,6 @@ export default function StudentPreview({ question, onBack }: StudentPreviewProps
                 </div>
             </div>
             
-            {/* Footer Note */}
             <div className="mt-8 text-center">
                 <p className="text-xs text-gray-400">
                     Student View Mode • {deviceMode.charAt(0) + deviceMode.slice(1).toLowerCase()} Preview

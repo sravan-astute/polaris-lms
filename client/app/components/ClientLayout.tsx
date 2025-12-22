@@ -7,7 +7,6 @@ import { ThemeProvider, useTheme, THEMES, ThemeKey } from "../context/ThemeConte
 import { Palette, Check, Minus, Plus, Bell, User } from "lucide-react";
 
 // --- INTERNAL COMPONENT: TOP HEADER ---
-// This puts the controls in the top right corner
 const TopHeader = () => {
   const { theme, themeKey, setThemeKey, fontStep, adjustFont } = useTheme();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
@@ -15,9 +14,9 @@ const TopHeader = () => {
   return (
     <header className={`h-16 border-b flex items-center justify-between px-8 transition-colors duration-300 ${theme.paper} ${theme.border}`}>
       
-      {/* Left side: Breadcrumbs (Optional) */}
+      {/* Left side: Breadcrumbs */}
       <div className="font-semibold opacity-50 text-sm">
-         Polaris LMS / System
+          Polaris LMS / System
       </div>
 
       {/* Right side: Controls */}
@@ -81,10 +80,12 @@ const TopHeader = () => {
 // --- LAYOUT LOGIC ---
 function InnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isLoginPage = pathname === "/login";
+  
+  // ✅ UPDATED: Hide sidebar on both Login AND Signup pages
+  const isAuthPage = pathname === "/login" || pathname === "/signup";
 
-  // CASE 1: Login Page -> Full Screen, No Sidebar
-  if (isLoginPage) {
+  // CASE 1: Auth Pages -> Full Screen, No Sidebar
+  if (isAuthPage) {
     return <main className="min-h-screen w-full">{children}</main>;
   }
 

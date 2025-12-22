@@ -1,0 +1,27 @@
+"use client";
+
+import { LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+export default function LogoutButton() {
+  const router = useRouter();
+
+  const handleLogout = () => {
+    // 1. Clear the keys
+    localStorage.removeItem("token");
+    localStorage.removeItem("userRole");
+    
+    // 2. Go to Login
+    router.push("/login");
+  };
+
+  return (
+    <button 
+      onClick={handleLogout}
+      className="flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-lg transition-colors"
+    >
+      <LogOut size={16} />
+      <span>Sign Out</span>
+    </button>
+  );
+}
