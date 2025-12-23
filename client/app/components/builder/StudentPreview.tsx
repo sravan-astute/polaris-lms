@@ -143,7 +143,11 @@ export default function StudentPreview({ question, onBack }: StudentPreviewProps
                             <span className="text-[10px] font-black uppercase text-indigo-400">{question.difficulty} Alignment</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            {question.calculator && <Calculator size={14} className="text-slate-400" title="Calculator Enabled" />}
+                            {question.calculator && (
+                                <span title="Calculator Enabled">
+                                    <Calculator size={14} className="text-slate-400" />
+                                </span>
+                                )}
                             <span className="text-xs font-bold bg-gray-100 px-2 py-1 rounded text-gray-500">{question.points} Points</span>
                         </div>
                     </div>
