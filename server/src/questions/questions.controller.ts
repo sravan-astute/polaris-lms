@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, Delete, Patch, Query, UseGuards, Re
 import { QuestionsService } from './questions.service';
 import { Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CreateQuestionDto } from './dto/create-question.dto'; // 👈 IMPORT THE DTO
+import { CreateQuestionDto } from './dto/create-question.dto'; 
 
 @Controller('questions')
 export class QuestionsController {
@@ -11,12 +11,8 @@ export class QuestionsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() createQuestionDto: CreateQuestionDto, @Request() req: any) {
-    // 1. Get Real User ID from JWT
     const userId = req.user.userId || req.user.sub;
-    
-    // 2. We pass 'undefined' for the fallback Org ID. 
-    // Your Service layer (questions.service.ts) already looks up the 
-    // real Organization ID from the User table, so we don't need to hardcode it here.
+    // This calls the service which now handles the passage connection 
     return this.questionsService.create(createQuestionDto, userId, undefined);
   }
 
@@ -31,17 +27,17 @@ export class QuestionsController {
     const where: Prisma.QuestionWhereInput = {};
 
     if (subject && subject !== 'ALL') where.subject = subject;
-    // Note: Ensure gradeLevels is treated as an array in your schema
     if (grade && grade !== 'ALL') where.gradeLevels = { has: grade };
     
     if (search) {
         where.OR = [
             { text: { contains: search, mode: 'insensitive' } },
             { tags: { has: search } },
-            { standards: { has: search } } // If standards is an array
+            { standards: { has: search } }
         ];
     }
 
+    // This calls the service which now includes the passage relation 
     return this.questionsService.findAll({
         where,
         skip: (Number(page) - 1) * Number(limit),
@@ -51,6 +47,7 @@ export class QuestionsController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
+    // Returns full question data + linked passage content [cite: 256, 261]
     return this.questionsService.findOne(id);
   }
   
@@ -59,7 +56,7 @@ export class QuestionsController {
   update(@Param('id') id: string, @Body() updateQuestionDto: CreateQuestionDto, @Request() req: any) {
     const userId = req.user.userId || req.user.sub;
     
-    // Reuse the create logic (Upsert pattern) but include the ID so it updates instead of creates
+    // Passing the ID ensures the service performs an update rather than a new create 
     return this.questionsService.create({ ...updateQuestionDto, id }, userId, undefined);
   }
 

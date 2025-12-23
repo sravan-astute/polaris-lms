@@ -2,22 +2,28 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
+// 🛠️ 1. ADD THIS IMPORT
+import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
+  // 🛠️ 2. CONFIGURE BODY LIMITS (Add this before your CORS config)
+  // This allows the server to accept large Base64 image strings
+  app.use(json({ limit: '10mb' }));
+  app.use(urlencoded({ limit: '10mb', extended: true }));
+
   // 1. ✅ FIX: Explicit CORS Configuration
   app.enableCors({
     origin: [
       "http://localhost:3000",
-      // 👇 YOUR LIVE FRONTEND URL (No trailing slash)
       "https://polaris-frontend-379760782242.us-east4.run.app"
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 
-  // Debug Middleware (Kept from your code)
+  // Debug Middleware
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.includes('/questions') && req.method === 'POST') {
         console.log("------------------------------------------------");
@@ -32,7 +38,6 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   // 2. ✅ FIX: Use Cloud Run's PORT variable
-  // Cloud Run injects 'PORT', usually 8080. If you ignore it, the app crashes.
   const port = process.env.PORT || 4000;
   await app.listen(port);
   

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react"; // 👈 Added useMemo
+import React, { useEffect, useMemo } from "react"; 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -17,7 +17,6 @@ export interface RichTextEditorProps {
 // --- MATH PARSER (Unchanged) ---
 const convertToLatex = (input: string) => {
     let latex = input.trim();
-    // 1. Greek
     const wordSymbols: Record<string, string> = {
         'alpha': '\\alpha', 'beta': '\\beta', 'gamma': '\\gamma', 'delta': '\\delta', 
         'theta': '\\theta', 'pi': '\\pi', 'sigma': '\\sigma', 'omega': '\\omega', 
@@ -28,29 +27,24 @@ const convertToLatex = (input: string) => {
         const regex = new RegExp(`\\b${key}\\b`, 'g'); 
         latex = latex.replace(regex, wordSymbols[key]);
     });
-    // 2. Operators
     const operatorSymbols: Record<string, string> = {
         '<=': '\\le', '>=': '\\ge', '!=': '\\neq', '+-': '\\pm', '~=': '\\approx'
     };
     Object.keys(operatorSymbols).forEach(key => {
         latex = latex.split(key).join(operatorSymbols[key]);
     });
-    // 3. Functions
     const functions = ['sin', 'cos', 'tan', 'sec', 'csc', 'cot', 'log', 'ln', 'lim'];
     functions.forEach(func => {
          const regex = new RegExp(`\\b${func}\\b`, 'g');
          latex = latex.replace(regex, `\\${func}`);
     });
-    // 4. Fractions
     latex = latex.replace(/\(([^)]+)\)\s*\/\s*\(([^)]+)\)/g, "\\frac{$1}{$2}");
     latex = latex.replace(/\(([^)]+)\)\s*\/\s*(\w+)/g, "\\frac{$1}{$2}");
     latex = latex.replace(/(\w+)\s*\/\s*\(([^)]+)\)/g, "\\frac{$1}{$2}");
     latex = latex.replace(/(\w+)\s*\/\s*(\w+)/g, "\\frac{$1}{$2}");
-    // 5. Powers & Subscripts
     latex = latex.replace(/\^(\(([^)]+)\))/g, "^{$2}"); 
     latex = latex.replace(/\^(\w+)/g, "^{$1}");         
     latex = latex.replace(/_(\w+)/g, "_{$1}");
-    // 6. Roots
     latex = latex.replace(/\\sqrt\(([^)]+)\)/g, "\\sqrt{$1}");
 
     return latex;
@@ -58,7 +52,6 @@ const convertToLatex = (input: string) => {
 
 export default function RichTextEditor({ content, onChange, placeholder, compact = false }: RichTextEditorProps) {
   
-  // ✅ FIX: Memoize extensions so they aren't re-created on every render
   const extensions = useMemo(() => {
       return [
         StarterKit, 
@@ -72,16 +65,17 @@ export default function RichTextEditor({ content, onChange, placeholder, compact
             }
         }) 
       ];
-  }, []); // Empty dependency array = created only once
+  }, []);
 
   const editor = useEditor({
     immediatelyRender: false, 
     shouldRerenderOnTransaction: false, 
-    extensions: extensions, // 👈 Use the memoized list
+    extensions: extensions,
     content: content,
     editorProps: {
       attributes: {
-        class: `prose prose-sm focus:outline-none w-full ${compact ? 'min-h-[40px]' : 'min-h-[120px] p-4'}`,
+        // 🛠️ FIXED: Removed min-height and padding for a true single-line feel
+        class: `prose prose-sm focus:outline-none w-full ${compact ? 'min-h-[32px] px-2 py-1' : 'min-h-[120px] p-4'}`,
       },
     },
     onUpdate: ({ editor }) => {
@@ -89,7 +83,6 @@ export default function RichTextEditor({ content, onChange, placeholder, compact
     },
   });
 
-  // Sync content if it changes externally
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
         editor.commands.setContent(content);
@@ -106,10 +99,7 @@ export default function RichTextEditor({ content, onChange, placeholder, compact
 
       try {
           const latex = convertToLatex(text);
-          console.log(`Converted: "${text}" -> "${latex}"`);
-          
           const url = `https://latex.codecogs.com/png.latex?\\dpi{110}\\bg_white\\sf&space;${encodeURIComponent(latex)}`;
-          
           editor.chain().focus().setImage({ src: url, alt: latex, title: latex }).run();
       } catch (e) {
           console.error("Math conversion error:", e);
@@ -118,37 +108,45 @@ export default function RichTextEditor({ content, onChange, placeholder, compact
   };
 
   return (
-    <div className={`border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all focus-within:ring-2 focus-within:ring-indigo-500/20 ${compact ? 'flex flex-row-reverse' : 'flex-col'}`}>
+    // 🛠️ FIXED: flex-row divides the box into two parts horizontally
+    <div className={`group border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all focus-within:ring-2 focus-within:ring-indigo-500/20 flex flex-row items-stretch`}>
       
-      {/* TOOLBAR */}
-      <div className={`flex flex-wrap items-center gap-1 border-b bg-gray-50/50 text-gray-700 ${compact ? 'border-l border-b-0 w-auto flex-col p-1' : 'p-2'}`}>
-        
-        <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} icon={<Bold size={14} />} />
-        <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} icon={<Italic size={14} />} />
-        
-        <div className="w-px h-4 bg-gray-300 mx-1" />
-
-        <button 
-            type="button"
-            onClick={handleMath} 
-            className="p-1.5 rounded hover:bg-indigo-100 text-indigo-600 font-bold flex items-center gap-1" 
-            title="Convert Selection to Math"
-        >
-            <Sigma size={14} />
-            <span className="text-[10px] font-bold">Math</span>
-        </button>
-
-        {!compact && (
-            <>
-                <div className="w-px h-4 bg-gray-300 mx-1" />
-                <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} icon={<List size={14} />} />
-                <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} isActive={editor.isActive('orderedList')} icon={<ListOrdered size={14} />} />
-            </>
-        )}
+      {/* PART 1: Main Text Field */}
+      <div className={`cursor-text flex-1 min-w-0`} onClick={() => editor.chain().focus().run()}>
+        <EditorContent editor={editor} />
       </div>
 
-      <div className={`cursor-text w-full ${compact ? 'flex-1 p-2' : ''}`} onClick={() => editor.chain().focus().run()}>
-        <EditorContent editor={editor} />
+      {/* PART 2: Fixed-width Action Buttons */}
+      <div className={`flex items-center justify-center border-l bg-gray-50/50 p-0.5 ${compact ? 'w-auto' : 'w-10 flex-col'}`}>
+        <div className={`flex ${compact ? 'flex-row items-center gap-0.5' : 'flex-col gap-1'}`}>
+            <ToolbarButton 
+              onClick={() => editor.chain().focus().toggleBold().run()} 
+              isActive={editor.isActive('bold')} 
+              icon={<Bold size={12} />} 
+            />
+            <ToolbarButton 
+              onClick={() => editor.chain().focus().toggleItalic().run()} 
+              isActive={editor.isActive('italic')} 
+              icon={<Italic size={12} />} 
+            />
+            
+            {/* 🛠️ FIXED: The Sigma/Math button is now icon-only in the compact side panel */}
+            <button 
+                type="button"
+                onClick={handleMath} 
+                className="p-1 rounded hover:bg-indigo-100 text-indigo-600 transition-colors" 
+                title="Math"
+            >
+                <Sigma size={12} />
+            </button>
+        </div>
+
+        {!compact && (
+            <div className="flex flex-col gap-1 mt-2 border-t pt-2">
+                <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} icon={<List size={12} />} />
+                <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} isActive={editor.isActive('orderedList')} icon={<ListOrdered size={12} />} />
+            </div>
+        )}
       </div>
     </div>
   );
@@ -156,7 +154,7 @@ export default function RichTextEditor({ content, onChange, placeholder, compact
 
 function ToolbarButton({ onClick, isActive, icon }: any) {
     return (
-        <button type="button" onClick={onClick} className={`p-1.5 rounded transition-colors ${isActive ? "bg-gray-200 text-black shadow-inner" : "text-gray-500 hover:bg-gray-200"}`}>
+        <button type="button" onClick={onClick} className={`p-1 rounded transition-colors ${isActive ? "bg-indigo-100 text-indigo-700" : "text-gray-500 hover:bg-gray-200"}`}>
             {icon}
         </button>
     )

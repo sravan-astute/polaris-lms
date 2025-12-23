@@ -6,6 +6,7 @@
 │   │   │   ├── builder
 │   │   │   │   ├── EditorCanvas.tsx
 │   │   │   │   ├── EditorSidebar.tsx
+│   │   │   │   ├── PassageManager.tsx
 │   │   │   │   └── StudentPreview.tsx
 │   │   │   ├── ClientLayout.tsx
 │   │   │   ├── New Text Document.txt
@@ -19,6 +20,8 @@
 │   │   │   ├── assessments
 │   │   │   │   └── page.tsx
 │   │   │   ├── item-bank
+│   │   │   │   ├── ela
+│   │   │   │   │   └── page.tsx
 │   │   │   │   └── page.tsx
 │   │   │   ├── review
 │   │   │   │   └── page.tsx
@@ -27,11 +30,6 @@
 │   │   │   └── page.tsx
 │   │   ├── media
 │   │   │   └── page.tsx
-│   │   ├── quizzes
-│   │   │   ├── [id]
-│   │   │   │   └── page.tsx
-│   │   │   └── new
-│   │   │       └── page.tsx
 │   │   ├── settings
 │   │   │   └── page.tsx
 │   │   ├── signup
@@ -68,7 +66,8 @@
 │   ├── package.json
 │   ├── postcss.config.mjs
 │   ├── README.md
-│   └── tsconfig.json
+│   ├── tsconfig.json
+│   └── types.d.ts
 ├── server
 │   ├── prisma
 │   │   ├── migrations
@@ -91,6 +90,10 @@
 │   │   │   ├── 20251221163443_add_question_code
 │   │   │   │   └── migration.sql
 │   │   │   ├── 20251221173049_fix_duplicate_code
+│   │   │   │   └── migration.sql
+│   │   │   ├── 20251222064131_add_ela_passages
+│   │   │   │   └── migration.sql
+│   │   │   ├── 20251222070157_add_passage_media
 │   │   │   │   └── migration.sql
 │   │   │   └── migration_lock.toml
 │   │   ├── schema.prisma
@@ -120,10 +123,23 @@
 │   │   │   ├── organizations.controller.ts
 │   │   │   ├── organizations.module.ts
 │   │   │   └── organizations.service.ts
+│   │   ├── passages
+│   │   │   ├── dto
+│   │   │   │   ├── create-passage.dto.ts
+│   │   │   │   └── update-passage.dto.ts
+│   │   │   ├── entities
+│   │   │   │   └── passage.entity.ts
+│   │   │   ├── passages.controller.spec.ts
+│   │   │   ├── passages.controller.ts
+│   │   │   ├── passages.module.ts
+│   │   │   ├── passages.service.spec.ts
+│   │   │   └── passages.service.ts
 │   │   ├── prisma
 │   │   │   ├── prisma.module.ts
 │   │   │   └── prisma.service.ts
 │   │   ├── questions
+│   │   │   ├── dto
+│   │   │   │   └── create-question.dto.ts
 │   │   │   ├── questions.controller.ts
 │   │   │   ├── questions.module.ts
 │   │   │   └── questions.service.ts
@@ -160,6 +176,7 @@
 │   ├── tsconfig.build.json
 │   └── tsconfig.json
 ├── .dockerignore
+├── access_token.txt
 ├── docker-compose.yml
 ├── map_project.js
 ├── package-lock.json

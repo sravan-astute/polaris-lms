@@ -25,7 +25,7 @@ export class CreateQuestionDto {
   // --- Core Content ---
   @IsString()
   @IsNotEmpty()
-  text: string; // The prompt
+  text: string; 
 
   @IsEnum(QuestionType)
   @IsNotEmpty()
@@ -75,6 +75,12 @@ export class CreateQuestionDto {
   @IsString()
   @IsOptional()
   explanation?: string;
+
+  // 🔗 THE PRESERVATION FIX: 
+  // This ensures the passage link is accepted by the API
+  @IsString()
+  @IsOptional()
+  passageId?: string; 
 
   // --- Media & Tools ---
   @IsString()

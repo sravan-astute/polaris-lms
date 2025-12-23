@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation"; 
-import { Save, Eye, Edit3, Loader2, Send, CheckCircle } from "lucide-react"; 
+import { Save, Eye, Edit3, Loader2, Send, CheckCircle, PlusSquare } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { useTheme } from "../context/ThemeContext";
 import { toast } from "sonner"; 
@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import EditorSidebar from "./builder/EditorSidebar";
 import EditorCanvas from "./builder/EditorCanvas";
 import StudentPreview from "./builder/StudentPreview";
-// 👇 NEW: Import the Passage Manager
 import PassageManager from "./builder/PassageManager";
 
 // --- TYPES ---
@@ -49,9 +48,16 @@ export interface QuestionData {
   text: string; 
   options: Option[]; 
   explanation: string; 
+  reviewerNotes?: string; // 🛠️ Dedicated field for feedback
   tags: string; 
   points: number;
-  passageId?: string; // 👈 ADDED: Optional link to a parent passage
+  passageId?: string;
+  passage?: {
+    id: string;
+    title: string;
+    content: string;
+    mediaUrl?: string; 
+  };
 }
 
 interface QuestionBuilderProps {
@@ -64,7 +70,6 @@ export default function QuestionBuilder({
   quizId, initialData, onCancel, onQuestionAdded, onSave
 }: QuestionBuilderProps) {
   const { theme } = useTheme();
-  const router = useRouter(); 
   const [mode, setMode] = useState<'EDIT' | 'PREVIEW'>('EDIT');
   const [isSaving, setIsSaving] = useState(false); 
 
@@ -72,29 +77,43 @@ export default function QuestionBuilder({
       subject: "MATH", gradeLevels: ["3"], standards: [], difficulty: "MEDIUM",
       type: "MULTIPLE_CHOICE", status: "DRAFT", bloomsTaxonomy: "REMEMBER",
       dokLevel: "LEVEL_1", calculator: false, text: "", mediaUrl: "",
-      mediaType: "IMAGE", mediaAltText: "", tags: "", explanation: "", points: 1,
+      mediaType: "IMAGE", mediaAltText: "", tags: "", explanation: "", 
+      reviewerNotes: "", // 🛠️ Initialize field
+      points: 1,
       options: [{ id: "1", text: "", isCorrect: false }, { id: "2", text: "", isCorrect: false }]
   };
 
-  // --- HELPER: Safely convert tags ---
   const formatTagsOnLoad = (tags: any): string => {
       if (Array.isArray(tags)) return tags.join(', ');
       if (typeof tags === 'string') return tags;      
       return "";
   };
 
-  const [question, setQuestion] = useState<QuestionData>({
-      ...defaultQuestion, 
-      ...initialData,
-      standards: initialData?.standards ?? [],
-      gradeLevels: initialData?.gradeLevels ?? ["3"],
-      options: initialData?.options ?? defaultQuestion.options,
-      code: initialData?.code || "",
-      tags: formatTagsOnLoad(initialData?.tags), 
-      passageId: initialData?.passageId || undefined, // 👈 Initialize Passage ID
+  const [question, setQuestion] = useState<QuestionData>(() => {
+      // 🛠️ LOGIC FIX: Explicitly look inside the nested JSON 'data' field returned from server
+      const notesFromData = (initialData as any)?.data?.reviewerNotes;
+
+      return {
+          ...defaultQuestion, 
+          ...initialData,
+          standards: initialData?.standards ?? [],
+          gradeLevels: initialData?.gradeLevels ?? ["3"],
+          options: initialData?.options ?? defaultQuestion.options,
+          code: initialData?.code || "",
+          tags: formatTagsOnLoad(initialData?.tags), 
+          // 🛠️ Ensure we prioritize notes regardless of where they sit in the JSON response
+          reviewerNotes: initialData?.reviewerNotes || notesFromData || "",
+          passageId: initialData?.passageId || undefined,
+          passage: initialData?.passage || undefined, 
+      };
   });
 
-  // --- SMART TYPE SWITCHING ---
+  const isELASubject = (subj: string) => {
+    if (!subj) return false;
+    const s = subj.toUpperCase();
+    return s.includes('ELA') || s.includes('ENGLISH') || s.includes('READING') || s.includes('LITERATURE');
+  };
+
   const handleChange = (field: keyof QuestionData, value: any) => {
     if (field === 'type' && value !== question.type) {
         if (value === 'TRUE_FALSE') {
@@ -168,7 +187,6 @@ export default function QuestionBuilder({
     });
   };
 
-  // --- VALIDATION ---
   const validate = (): boolean => {
       if (!question.text || question.text.trim() === '<p></p>' || question.text.trim() === '') {
           toast.error("Please enter a question stem."); 
@@ -187,28 +205,34 @@ export default function QuestionBuilder({
       return true;
   };
 
-  // --- SAVE LOGIC ---
-  const handleFinalSave = async (targetStatus: ContentStatus) => { 
-    // 1. Validate
+  const handleFinalSave = async (targetStatus: ContentStatus, resetAfter: boolean = false) => { 
     if ((targetStatus === 'PUBLISHED' || targetStatus === 'PENDING_REVIEW') && !validate()) return;
-    
-    // 2. Draft Check
     if (targetStatus === 'DRAFT' && (!question.text || question.text === '<p></p>')) {
          toast.error("Question text is required.");
          return;
     }
-
     setIsSaving(true);
-
     try {
         if (onSave) {
+            // 🛠️ DATA INTEGRITY: Explicitly include reviewerNotes in the payload
             await onSave({ 
                 ...question, 
                 status: targetStatus,
-                points: Number(question.points) 
+                points: Number(question.points),
+                reviewerNotes: question.reviewerNotes 
             });
-        } else {
-            console.warn("No onSave prop provided to QuestionBuilder");
+
+            if (resetAfter) {
+                setQuestion(prev => ({
+                    ...defaultQuestion,
+                    subject: prev.subject,
+                    gradeLevels: prev.gradeLevels,
+                    passageId: prev.passageId,
+                    passage: prev.passage,
+                    status: "DRAFT"
+                }));
+                toast.success("Question saved! Context preserved.");
+            }
         }
     } catch (error) {
         console.error("Save failed", error);
@@ -231,7 +255,6 @@ export default function QuestionBuilder({
           <p className={`opacity-70 text-sm`}>{question.type.replace(/_/g, " ")}</p>
         </div>
         
-        {/* Toggle Mode */}
         <div className="flex items-center gap-4">
            <div className={`flex p-1 rounded-lg border ml-8 ${theme.border} bg-black/5`}>
              <button onClick={() => setMode('EDIT')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${mode === 'EDIT' ? 'bg-white shadow-sm text-indigo-600' : 'opacity-60 hover:opacity-100'}`}><Edit3 size={14} /> Edit</button>
@@ -239,16 +262,19 @@ export default function QuestionBuilder({
            </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex items-center gap-3">
            <Button variant="ghost" onClick={onCancel} disabled={isSaving} className={`hover:bg-current hover:bg-opacity-10 ${theme.text}`}>Cancel</Button>
            
-           {/* 1. SAVE DRAFT */}
+           {!initialData && (
+               <Button variant="outline" onClick={() => handleFinalSave("DRAFT", true)} disabled={isSaving} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
+                 <PlusSquare size={16} className="mr-2" /> Save & Add Another
+               </Button>
+           )}
+
            <Button variant="secondary" onClick={() => handleFinalSave("DRAFT")} disabled={isSaving} className={`border ${theme.border} hover:opacity-80`}>
              {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : "Save Draft"}
            </Button>
            
-           {/* 2. SUBMIT FOR REVIEW */}
            {(question.status === 'DRAFT' || question.status === 'CHANGES_REQUESTED') && (
                <Button onClick={() => handleFinalSave("PENDING_REVIEW")} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white border-none">
                  {isSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Send size={16} className="mr-2" />}
@@ -256,7 +282,6 @@ export default function QuestionBuilder({
                </Button>
            )}
 
-           {/* 3. PUBLISH */}
            {(question.status === 'APPROVED' || question.status === 'PUBLISHED') && (
                <Button onClick={() => handleFinalSave("PUBLISHED")} disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-white border-none">
                  {isSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <CheckCircle size={16} className="mr-2" />} 
@@ -266,20 +291,22 @@ export default function QuestionBuilder({
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex-1 overflow-hidden flex">
         {mode === 'EDIT' ? (
             <>
                 <EditorSidebar question={question} onChange={handleChange} onToggleGrade={toggleGrade} />
                 <main className={`flex-1 overflow-y-auto p-8`}>
                     
-                    {/* 🌟 NEW: ELA PASSAGE MANAGER */}
-                    {question.subject === 'ELA' && (
+                    {isELASubject(question.subject) && (
                         <PassageManager 
                             selectedPassageId={question.passageId}
-                            onSelect={(id, title, content) => {
-                                setQuestion(prev => ({ ...prev, passageId: id }));
-                                toast.success("Passage linked!");
+                            onSelect={(id, title, content, mediaUrl) => {
+                                setQuestion(prev => ({ 
+                                    ...prev, 
+                                    passageId: id || undefined, 
+                                    passage: id ? { id, title, content, mediaUrl } : undefined 
+                                }));
                             }}
                         />
                     )}
@@ -291,6 +318,10 @@ export default function QuestionBuilder({
                         onSetCorrect={handleSetCorrect} 
                         onAddOption={handleAddOption} 
                         onRemoveOption={handleRemoveOption} 
+                        onOpenPassageManager={() => {
+                            const passageEl = document.querySelector('[data-passage-trigger]');
+                            if (passageEl instanceof HTMLElement) passageEl.click();
+                        }}
                     />
                 </main>
             </>
