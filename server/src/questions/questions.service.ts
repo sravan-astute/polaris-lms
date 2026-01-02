@@ -29,7 +29,6 @@ export class QuestionsService {
     const realOrgId = user.organizationId;
 
     // 🔍 STEP 2: Extract data fields including passageId and reviewerNotes
-    // 🛠️ FIX: Explicitly extract reviewerNotes from the incoming request
     const { id, options, tags, code, passageId, reviewerNotes, ...rest } = data;
 
     // Parse Tags safely
@@ -40,7 +39,6 @@ export class QuestionsService {
         tagsArray = tags;
     }
 
-    // 🛠️ FIX: Update the JSON payload to store reviewerNotes separately
     const jsonPayload = { 
         options: options || [],
         reviewerNotes: reviewerNotes || null 
@@ -61,15 +59,14 @@ export class QuestionsService {
                     code: itemCode, 
                     type: rest.type || "MULTIPLE_CHOICE",
                     tags: tagsArray,
-                    data: jsonPayload, // 🛠️ Persists the new reviewerNotes key
-                    // 🔗 THE FIX: Explicitly connect/disconnect the passage relation
+                    data: jsonPayload,
                     passage: passageId 
                         ? { connect: { id: passageId } } 
                         : (passageId === null ? { disconnect: true } : undefined),
                 },
                 include: { 
-                    passage: true, // Returns full passage object to the UI
-                    creator: { select: { fullName: true } }
+                    passage: true, 
+                    creator: { select: { firstName: true, lastName: true } }
                 }
             });
         } else {
@@ -83,15 +80,14 @@ export class QuestionsService {
                     code: itemCode,
                     type: rest.type || "MULTIPLE_CHOICE",
                     tags: tagsArray,
-                    data: jsonPayload, // 🛠️ Persists reviewerNotes on creation
+                    data: jsonPayload,
                     creator: { connect: { id: userId } },
                     organization: { connect: { id: realOrgId } },
-                    // 🔗 THE FIX: Link the passage if provided during creation
                     ...(passageId && { passage: { connect: { id: passageId } } })
                 },
                 include: { 
                     passage: true, 
-                    creator: { select: { fullName: true } }
+                    creator: { select: { firstName: true, lastName: true } }
                 }
             });
         }
@@ -112,8 +108,7 @@ export class QuestionsService {
       where,
       orderBy: { createdAt: 'desc' },
       include: { 
-        creator: { select: { fullName: true } },
-        // 🔗 THE PRESERVATION: Ensures the Item Bank list knows which passages are linked
+        creator: { select: { firstName: true, lastName: true } },
         passage: { select: { id: true, title: true } } 
       }
     });
@@ -126,9 +121,8 @@ export class QuestionsService {
     return this.prisma.question.findUnique({
       where: { id },
       include: {
-        // 🔗 THE PRESERVATION: Loads the story content for the Editor
         passage: true, 
-        creator: { select: { fullName: true } }
+        creator: { select: { firstName: true, lastName: true } }
       },
     });
   }

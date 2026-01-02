@@ -33,24 +33,24 @@ enum QuestionType {
 }
 
 enum ContentStatus {
-  DRAFT               // Visible only to Author
-  PENDING_REVIEW      // Visible to Reviewer
-  CHANGES_REQUESTED   // Sent back to Author
-  APPROVED            // Ready for Manager
-  PUBLISHED           // Live for Students
+  DRAFT                // Visible only to Author
+  PENDING_REVIEW       // Visible to Reviewer
+  CHANGES_REQUESTED    // Sent back to Author
+  APPROVED             // Ready for Manager
+  PUBLISHED            // Live for Students
   ARCHIVED
 }
 
 // --- 1. ORGANIZATION ---
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  domain    String   @unique
+  id         String   @id @default(uuid())
+  name       String
+  domain     String   @unique
   
-  users     User[]
-  quizzes   Quiz[]
-  questions Question[] 
-  passages  Passage[] // 👈 NEW: Organization owns the passages too
+  users      User[]
+  quizzes    Quiz[]
+  questions  Question[] 
+  passages   Passage[] 
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -60,25 +60,54 @@ model Organization {
 
 // --- 2. USERS ---
 model User {
-  id             String        @id @default(uuid())
-  email          String        @unique
-  password       String?
-  fullName       String        @map("full_name")
-  role           Role          @default(TEACHER)
+  id               String        @id @default(uuid())
+  email            String        @unique
+  password         String?
   
-  organizationId String        @map("organization_id")
-  organization   Organization  @relation(fields: [organizationId], references: [id])
+  // 🛠️ UPDATED: Added split name fields as optional to prevent migration errors
+  firstName        String?       @map("first_name")
+  lastName         String?       @map("last_name")
+  
+  role             Role          @default(TEACHER)
+  
+  // 🛠️ UPDATED: Added consistency to profile fields
+  phone            String?
+  jobTitle         String?       @map("job_title") // Added for professional profiles
+  bio              String?       // Used as Professional Bio/Title
+  avatarUrl        String?       @map("avatar_url")
+  preferences      Json?         @default("{\"theme\": \"light\", \"notifications\": true}")
+  
+  organizationId   String        @map("organization_id")
+  organization     Organization  @relation(fields: [organizationId], references: [id])
 
   // --- Relations ---
-  createdQuizzes    Quiz[]      @relation("CreatedQuizzes")
-  createdQuestions  Question[]  @relation("CreatedQuestions")
-  reviewedQuestions Question[]  @relation("ReviewedQuestions") 
-  approvedQuestions Question[]  @relation("ApprovedQuestions") 
+  createdQuizzes    Quiz[]       @relation("CreatedQuizzes")
+  createdQuestions  Question[]   @relation("CreatedQuestions")
+  reviewedQuestions Question[]   @relation("ReviewedQuestions") 
+  approvedQuestions Question[]   @relation("ApprovedQuestions") 
+  
+  // 🔗 Relation to password reset tokens
+  resetTokens       PasswordResetToken[]
 
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
 
   @@map("users")
+}
+
+// --- 🛠️ NEW: PASSWORD RESET TABLE (New Table for security) ---
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("password_reset_tokens")
 }
 
 // --- 3. PASSAGES (New ELA Table) ---
@@ -87,7 +116,6 @@ model Passage {
   title       String
   content     String   // The HTML rich text of the story
   
-  // 👇 NEW: Media Support for Passages
   mediaUrl    String?  @map("media_url") 
 
   // ELA Metadata
@@ -110,83 +138,83 @@ model Passage {
 
 // --- 4. QUESTIONS (The Item Bank) ---
 model Question {
-  id             String   @id @default(uuid())
+  id              String   @id @default(uuid())
   
   // --- Content ---
-  text           String   // The Prompts
-  type           QuestionType
-  points         Int      @default(1)
-  code           String   @unique @default(cuid()) 
+  text            String   // The Prompts
+  type            QuestionType
+  points          Int      @default(1)
+  code            String   @unique @default(cuid()) 
 
   // --- Data Container ---
-  data           Json?
+  data            Json?
 
   // --- Math/Meta ---
-  gradeLevels    String[]      
-  standards      String[]      
-  subject        String        
-  difficulty     String        
+  gradeLevels     String[]      
+  standards       String[]      
+  subject         String        
+  difficulty      String        
   bloomsTaxonomy String?
-  dokLevel       String?
+  dokLevel        String?
   
   // --- Media ---
-  mediaUrl       String?
-  mediaType      String?
-  mediaAltText   String?
-  calculator     Boolean      @default(false)
+  mediaUrl        String?
+  mediaType       String?
+  mediaAltText    String?
+  calculator      Boolean      @default(false)
 
-  tags           String[]      
-  explanation    String?
+  tags            String[]      
+  explanation     String?
 
   // --- Workflow Status ---
-  status         ContentStatus @default(DRAFT)
+  status          ContentStatus @default(DRAFT)
 
   // --- ELA PARENT LINK ---
-  passageId      String?       @map("passage_id") // 👈 NEW: Link to Passage Table
-  passage        Passage?      @relation(fields: [passageId], references: [id])
+  passageId       String?       @map("passage_id") 
+  passage         Passage?      @relation(fields: [passageId], references: [id])
 
   // --- Relations ---
   organizationId String        @map("organization_id")
   organization   Organization  @relation(fields: [organizationId], references: [id])
   
   // 1. Who wrote it?
-  creatorId      String        @map("creator_id")
-  creator        User          @relation("CreatedQuestions", fields: [creatorId], references: [id])
+  creatorId       String        @map("creator_id")
+  creator         User          @relation("CreatedQuestions", fields: [creatorId], references: [id])
   
   // 2. Who reviewed it?
-  reviewedById   String?       @map("reviewed_by_id")
-  reviewedBy     User?         @relation("ReviewedQuestions", fields: [reviewedById], references: [id])
+  reviewedById    String?       @map("reviewed_by_id")
+  reviewedBy      User?         @relation("ReviewedQuestions", fields: [reviewedById], references: [id])
 
   // 3. Who published it?
-  approvedById   String?       @map("approved_by_id")
-  approvedBy     User?         @relation("ApprovedQuestions", fields: [approvedById], references: [id])
+  approvedById    String?       @map("approved_by_id")
+  approvedBy      User?         @relation("ApprovedQuestions", fields: [approvedById], references: [id])
   
-  quizzes        QuizQuestion[] 
+  quizzes         QuizQuestion[] 
   
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
   @@map("questions")
 }
 
 // --- 5. QUIZZES ---
 model Quiz {
-  id             String   @id @default(uuid())
-  title          String
-  description    String?
-  status         String   @default("DRAFT") 
-  accessCode     String?  @unique @map("access_code")
+  id              String   @id @default(uuid())
+  title           String
+  description     String?
+  status          String   @default("DRAFT") 
+  accessCode      String?  @unique @map("access_code")
 
   organizationId String        @map("organization_id")
   organization   Organization  @relation(fields: [organizationId], references: [id])
 
-  creatorId      String        @map("creator_id")
-  creator        User          @relation("CreatedQuizzes", fields: [creatorId], references: [id])
+  creatorId       String        @map("creator_id")
+  creator         User          @relation("CreatedQuizzes", fields: [creatorId], references: [id])
 
-  questions      QuizQuestion[]
+  questions       QuizQuestion[]
 
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("quizzes")
 }

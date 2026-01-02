@@ -12,7 +12,7 @@ import { JwtStrategy } from './jwt.strategy';
     PassportModule,
     JwtModule.register({
       global: true,
-      secret: "POLARIS_SECRET_KEY", // 👈 HARDCODED: The Key Maker
+      secret: "POLARIS_SECRET_KEY",
       signOptions: { expiresIn: '60m' },
     }),
   ],

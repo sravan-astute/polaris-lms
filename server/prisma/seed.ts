@@ -4,10 +4,11 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting "Permanent User" Seed...');
+  console.log('🌱 Starting "Project Polaris" User Seed...');
 
-  // 1. Ensure the Organization Exists
-  const orgId = "11111111-1111-1111-1111-111111111111"; // Fixed ID for stability
+  // 1. Ensure the Organization Exists (Phase 0: Organizations table)
+  // [cite: 24, 25, 26]
+  const orgId = "11111111-1111-1111-1111-111111111111"; 
   
   const org = await prisma.organization.upsert({
     where: { id: orgId },
@@ -21,55 +22,63 @@ async function main() {
 
   console.log(`✅ Organization Ready: ${org.name}`);
 
-  // 2. Define the Team
-  const passwordHash = await bcrypt.hash('password123', 10); // Default password for everyone
+  // 2. Define the Team with Hashed Passwords (Phase 1: Week 3 logic)
+  // [cite: 113, 118, 119]
+  const passwordHash = await bcrypt.hash('password123', 10); 
 
   const users = [
-    // --- SUPER ADMINS ---
     {
       email: 'niranjan.k@astuteverse.com',
-      name: 'Niranjan K',
+      firstName: 'Niranjan',
+      lastName: 'K',
       role: Role.SUPER_ADMIN
     },
     {
       email: 'sravan.k@astuteverse.com',
-      name: 'Sravan K',
+      firstName: 'Sravan',
+      lastName: 'K',
       role: Role.SUPER_ADMIN
     },
-    // --- ADMIN ---
     {
       email: 'saravana.k@astuteverse.com',
-      name: 'Saravana K',
+      firstName: 'Saravana',
+      lastName: 'K',
       role: Role.ADMIN
     },
-    // --- PUBLISHER (Content Manager) ---
     {
       email: 'sasimala@astuteverse.com',
-      name: 'Sasimala',
+      firstName: 'Sasimala',
+      lastName: '', 
       role: Role.CONTENT_MANAGER
     },
-    // --- REVIEWER ---
     {
       email: 'mirunaalni.r@astuteverse.com',
-      name: 'Mirunaalni R',
+      firstName: 'Mirunaalni',
+      lastName: 'R',
       role: Role.REVIEWER
     },
-    // --- AUTHOR (Content Developer) ---
     {
       email: 'content@astuteverse.com',
-      name: 'Content Team',
+      firstName: 'Content',
+      lastName: 'Team',
       role: Role.CONTENT_DEVELOPER
     }
   ];
 
-  // 3. Create/Restore Users Loop
+  // 3. Create/Restore Users Loop (Phase 1: Authentication & User Logic)
+  // [cite: 114, 115]
   for (const user of users) {
     const upsertedUser = await prisma.user.upsert({
       where: { email: user.email },
-      update: { role: user.role }, // Ensure role is correct if it changed
+      update: { 
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName
+      },
       create: {
         email: user.email,
-        fullName: user.name,
+        firstName: user.firstName, 
+        lastName: user.lastName,   
         password: passwordHash,
         role: user.role,
         organizationId: org.id,
@@ -78,12 +87,12 @@ async function main() {
     console.log(`👤 Verified User: ${upsertedUser.email} [${upsertedUser.role}]`);
   }
 
-  console.log('✨ Seeding complete. You can now login.');
+  console.log('✨ Seeding complete. Use "password123" to login.');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('❌ Seed Error:', e);
     process.exit(1);
   })
   .finally(async () => {

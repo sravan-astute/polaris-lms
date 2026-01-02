@@ -8,7 +8,6 @@ export class LtiService {
 
   async validateAndLogin(payload: any) {
     // 1. Map LTI Roles to our Internal Enums
-    // LTI usually sends roles like "http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor"
     const ltiRoles = payload['https://purl.imsglobal.org/spec/lti/claim/roles'] || [];
     
     let userRole: Role = Role.STUDENT; // Default
@@ -18,38 +17,43 @@ export class LtiService {
     }
 
     // 2. Find or Create the User
-    // Note: We use email as the unique key. 
-    // If your LTI payload doesn't have email, we might need a fallback, but for now we assume it exists.
     const email = payload.email || `lti_user_${payload.sub}@polaris.edu`;
 
     let user = await this.prisma.user.findUnique({
       where: { email },
     });
 
-    if (user) {
-      // Update existing user role if needed (Optional strategy)
-      // await this.prisma.user.update({ where: { id: user.id }, data: { role: userRole } });
-    } else {
-      // Create new user
-      // We assign them to the Default Organization (The one created in seed.ts)
+    if (!user) {
+      // 🛠️ SPLIT Logic: Convert LTI name string into discrete fields
+      const ltiName = payload.name || 'LTI User';
+      const nameParts = ltiName.trim().split(/\s+/);
+      const fName = nameParts[0] || 'LTI';
+      const lName = nameParts.slice(1).join(' ') || 'User';
+
+      // Create new user using the updated schema fields
       const defaultOrgId = "11111111-1111-1111-1111-111111111111";
 
       user = await this.prisma.user.create({
         data: {
           email,
-          fullName: payload.name || 'LTI User',
-          role: userRole, // 👈 Directly setting the Enum
+          // 🛠️ UPDATED: firstName and lastName
+          firstName: fName,
+          lastName: lName,
+          role: userRole,
           organizationId: defaultOrgId,
-          // ltiUserId: payload.sub, // ❌ Removed: This column doesn't exist in our current schema
         },
       });
     }
 
+    // 🛠️ UPDATED: Return reconstructed name for the Auth token/session
     return {
       userId: user.id,
       email: user.email,
-      role: user.role, // 👈 No need for .name, it's already a string
-      fullName: user.fullName,
+      role: user.role, 
+      firstName: user.firstName,
+      lastName: user.lastName,
+      // Helper for existing frontend parts that still expect a single name string
+      fullName: `${user.firstName} ${user.lastName}`.trim(),
     };
   }
 }

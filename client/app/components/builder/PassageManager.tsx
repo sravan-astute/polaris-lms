@@ -5,6 +5,8 @@ import { BookOpen, Plus, Search, Loader2, Save, Image as ImageIcon, Upload, Tras
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import RichTextEditor from "../RichTextEditor";
+// 🛠️ Hook into global theme
+import { useTheme } from "../../context/ThemeContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';
 
@@ -47,12 +49,13 @@ const compressImage = (file: File): Promise<string> => {
 };
 
 export default function PassageManager({ selectedPassageId, onSelect }: PassageManagerProps) {
+  // 🛠️ Hook into global theme
+  const { theme, themeKey } = useTheme();
+  
   const [mode, setMode] = useState<'SELECT' | 'CREATE'>('SELECT');
   const [passages, setPassages] = useState<Passage[]>([]);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // 🛠️ FIX: Track if the initial background sync has already happened
   const hasSyncedRef = useRef(false);
 
   const [newTitle, setNewTitle] = useState("");
@@ -65,14 +68,11 @@ export default function PassageManager({ selectedPassageId, onSelect }: PassageM
     fetchPassages();
   }, []);
 
-  // 🛠️ UPDATED AUTO-SYNC EFFECT: Fires silently to populate preview on load
   useEffect(() => {
     if (selectedPassageId && passages.length > 0 && !hasSyncedRef.current) {
       const p = passages.find(item => item.id === selectedPassageId);
       if (p) {
-        // Silently hydrate the parent state without triggering the manual selection logic
         onSelect(p.id, p.title, p.content, p.mediaUrl);
-        // Mark as synced so it doesn't trigger again on re-renders
         hasSyncedRef.current = true;
       }
     }
@@ -139,11 +139,7 @@ export default function PassageManager({ selectedPassageId, onSelect }: PassageM
               onSelect(saved.id, saved.title, saved.content, saved.mediaUrl); 
               setMode('SELECT');
               toast.success("Passage created and linked!");
-              
-              setNewTitle(""); 
-              setNewContent(""); 
-              setNewMediaUrl("");
-              setNewLexile("");
+              setNewTitle(""); setNewContent(""); setNewMediaUrl(""); setNewLexile("");
           }
       } catch (e) {
           toast.error("Failed to create passage");
@@ -155,35 +151,47 @@ export default function PassageManager({ selectedPassageId, onSelect }: PassageM
   const selectedPassage = passages.find(p => p.id === selectedPassageId);
 
   return (
-    <div className="mb-6 border rounded-xl overflow-hidden bg-white shadow-sm transition-all">
-        <div className="px-4 py-3 bg-indigo-50/50 border-b flex justify-between items-center">
-            <div className="flex items-center gap-2 text-indigo-900">
-                <BookOpen size={18} />
-                <span className="font-bold text-sm">Reading Passage Context</span>
+    // 🛠️ Main Container: Forced theme.paper for high contrast visibility
+    <div className={`mb-6 border rounded-2xl overflow-hidden transition-all shadow-md ${theme.paper} ${theme.border}`}>
+        
+        {/* 📖 READING CONTEXT HEADER - Preserved Background, Fixed Spacing & Contrast */}
+            <div className={`px-5 py-3 border-b flex justify-between items-center bg-current/[0.08] transition-colors ${theme.border}`}>
+                <div className="flex items-center gap-3">
+                    {/* The icon now strictly follows theme.text at 100% visibility */}
+                    <BookOpen size={20} className={theme.text} />
+                    
+                    {/* Proper case, standard tracking to prevent congestion, and high-contrast theme text */}
+                    <span className={`font-black text-lg tracking-normal leading-none ${theme.text}`}>
+                        Reading passage context
+                    </span>
+                </div>
+                
+                {mode === 'SELECT' && (
+                    <button 
+                        data-passage-trigger
+                        onClick={() => setMode('CREATE')} 
+                        /* Fixed padding for a slim profile and clean, readable text */
+                        className={`px-5 py-2 rounded-xl border font-black text-sm transition-all active:scale-95 
+                            ${theme.border} ${theme.text} bg-current/[0.05] hover:bg-current/[0.1]`}
+                    >
+                        <Plus size={16} className="inline mr-2" /> 
+                        Create new passage
+                    </button>
+                )}
             </div>
-            {mode === 'SELECT' && (
-                <button 
-                  data-passage-trigger
-                  onClick={() => setMode('CREATE')} 
-                  className="text-xs flex items-center gap-1 text-indigo-600 font-bold hover:underline"
-                >
-                    <Plus size={14} /> Create New Passage
-                </button>
-            )}
-        </div>
 
-        <div className="p-4">
+        <div className="p-6">
             {mode === 'SELECT' && (
-                <div className="space-y-4">
+                <div className="space-y-6">
                     <div className="relative">
-                        <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                        <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${theme.text} opacity-40`} size={18} />
+                        {/* 🛠️ Dropdown: Forced theme.input for opposite font visibility */}
                         <select 
-                            className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm appearance-none outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white"
+                            className={`w-full pl-10 pr-4 py-3 border rounded-xl text-sm appearance-none outline-none transition-all focus:ring-2 ${theme.input} ${theme.border}`}
                             value={selectedPassageId || ""}
                             onChange={(e) => {
                                 const p = passages.find(item => item.id === e.target.value);
                                 if (p) {
-                                  // User manually clicked, so onSelect runs with notification logic
                                   onSelect(p.id, p.title, p.content, p.mediaUrl);
                                   toast.success("Passage linked!");
                                 } else {
@@ -191,7 +199,7 @@ export default function PassageManager({ selectedPassageId, onSelect }: PassageM
                                 }
                             }}
                         >
-                            <option value="">-- Select a Passage (Optional) --</option>
+                            <option value="">-- Link an Existing Passage (Optional) --</option>
                             {passages.map(p => (
                                 <option key={p.id} value={p.id}>{p.title}</option>
                             ))}
@@ -199,32 +207,48 @@ export default function PassageManager({ selectedPassageId, onSelect }: PassageM
                     </div>
 
                     {selectedPassage && (
-                        <div className="p-5 bg-gray-50/50 rounded-lg border text-sm max-h-[500px] overflow-y-auto">
-                            <div className="flex justify-between items-start mb-4 border-b pb-3">
+                        // 🛠️ Preview Area: bg-opacity-10 bg-current prevents shadowing
+                        <div className={`p-8 rounded-2xl border text-xl max-h-[600px] overflow-y-auto transition-colors ${theme.bg} ${theme.border}`}>
+                            <div className={`flex justify-between items-start mb-8 border-b pb-6 ${theme.border}`}>
                                 <div>
-                                    <h4 className="font-black text-slate-900 text-xl tracking-tight leading-none mb-1">{selectedPassage.title}</h4>
+                                    {/* 🛠️ UPGRADED TITLE: text-2xl -> text-4xl for readability */}
+                                    <h4 className={`font-black text-4xl tracking-tight mb-4 ${theme.text}`}>
+                                        {selectedPassage.title}
+                                    </h4>
                                     <div className="flex gap-2">
-                                        {selectedPassage.genre && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded uppercase font-black">{selectedPassage.genre}</span>}
-                                        {selectedPassage.lexile && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded uppercase font-black">{selectedPassage.lexile}</span>}
+                                        {selectedPassage.genre && (
+                                            <span className={`text-xs font-black px-3 py-1 rounded-lg border transition-all tracking-tight
+                                                ${theme.border} ${theme.text} bg-current/[0.08]`}>
+                                                {selectedPassage.genre.charAt(0) + selectedPassage.genre.slice(1).toLowerCase()}
+                                            </span>
+                                        )}
+                                        {selectedPassage.lexile && (
+                                            <span className={`text-xs font-black px-3 py-1 rounded-lg border transition-all tracking-tight
+                                                ${theme.border} ${theme.text} bg-current/[0.08]`}>
+                                                {selectedPassage.lexile}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="flex flex-col md:flex-row gap-6 items-start">
+                            {/* 🛠️ Layout Grid: Ensures large text flows properly next to images */}
+                            <div className="flex flex-col md:flex-row gap-10 items-start">
                                 <div className="flex-1 min-w-0">
                                     <div 
-                                        className="prose prose-slate max-w-none font-serif leading-relaxed text-base" 
+                                        className={`prose max-w-none font-serif transition-colors ${theme.text}`} 
+                                        style={{ fontSize: '20px', lineHeight: '1.75' }}
                                         dangerouslySetInnerHTML={{ __html: selectedPassage.content }} 
                                     />
                                 </div>
                                 
                                 {selectedPassage.mediaUrl && (
-                                    <div className="w-full md:w-1/2 flex-shrink-0">
-                                        <div className="sticky top-0 bg-white rounded-lg border p-1 shadow-sm">
+                                    <div className="w-full md:w-[45%] flex-shrink-0">
+                                        <div className={`rounded-2xl border p-2 shadow-md transition-colors ${theme.paper} ${theme.border}`}>
                                             <img 
                                                 src={selectedPassage.mediaUrl} 
                                                 alt="Passage Visual" 
-                                                className="w-full h-auto rounded object-contain"
+                                                className="w-full h-auto rounded-xl object-contain shadow-sm"
                                             />
                                         </div>
                                     </div>
@@ -236,22 +260,22 @@ export default function PassageManager({ selectedPassageId, onSelect }: PassageM
             )}
 
             {mode === 'CREATE' && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-900 uppercase ml-1">Title *</label>
+                <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${theme.text} opacity-70`}>Title *</label>
                             <input 
-                                className="w-full p-2 border rounded text-sm font-bold bg-white" 
-                                placeholder="e.g. The Giggling Stream" 
+                                className={`w-full p-3 border rounded-xl text-sm font-black transition-all ${theme.input} ${theme.border}`} 
+                                placeholder="e.g. The Whispering Winds" 
                                 value={newTitle}
                                 onChange={e => setNewTitle(e.target.value)}
                             />
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-900 uppercase ml-1">Genre</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                                <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${theme.text} opacity-70`}>Genre</label>
                                 <select 
-                                    className="w-full p-2 border rounded text-sm bg-white font-medium"
+                                    className={`w-full p-3 border rounded-xl text-sm font-black transition-all ${theme.input} ${theme.border}`}
                                     value={newGenre}
                                     onChange={e => setNewGenre(e.target.value)}
                                 >
@@ -261,11 +285,11 @@ export default function PassageManager({ selectedPassageId, onSelect }: PassageM
                                     <option value="DRAMA">Drama</option>
                                 </select>
                             </div>
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-900 uppercase ml-1">Lexile</label>
+                            <div className="space-y-2">
+                                <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${theme.text} opacity-70`}>Lexile</label>
                                 <input 
-                                    className="w-full p-2 border rounded text-sm font-medium bg-white" 
-                                    placeholder="e.g. 450L"
+                                    className={`w-full p-3 border rounded-xl text-sm font-black transition-all ${theme.input} ${theme.border}`} 
+                                    placeholder="e.g. 950L"
                                     value={newLexile}
                                     onChange={e => setNewLexile(e.target.value)}
                                 />
@@ -273,14 +297,14 @@ export default function PassageManager({ selectedPassageId, onSelect }: PassageM
                         </div>
                     </div>
 
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-900 uppercase ml-1">Passage Image</label>
-                        <div className="flex gap-2 items-center">
+                    <div className="space-y-2">
+                        <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${theme.text} opacity-70`}>Header Image</label>
+                        <div className="flex gap-3 items-center">
                             <div className="relative flex-1">
-                                <ImageIcon className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                                <ImageIcon className={`absolute left-3 top-1/2 -translate-y-1/2 ${theme.text} opacity-40`} size={18} />
                                 <input 
-                                    className="w-full pl-10 p-2 border rounded text-sm bg-white" 
-                                    placeholder="Image URL or upload..."
+                                    className={`w-full pl-10 p-3 border rounded-xl text-sm transition-all ${theme.input} ${theme.border}`} 
+                                    placeholder="Paste URL or select file..."
                                     value={newMediaUrl}
                                     onChange={e => setNewMediaUrl(e.target.value)}
                                 />
@@ -289,45 +313,39 @@ export default function PassageManager({ selectedPassageId, onSelect }: PassageM
                             <Button 
                                 type="button" 
                                 variant="outline" 
-                                size="icon" 
-                                className="h-10 w-10 border-indigo-200 text-indigo-600"
+                                className={`h-12 w-12 border shadow-sm transition-all ${theme.border} ${theme.text} bg-opacity-5 bg-current hover:bg-opacity-20`}
                                 onClick={() => fileInputRef.current?.click()}
                             >
-                                <Upload size={18} />
+                                <Upload size={20} />
                             </Button>
                             {newMediaUrl && (
                                 <button 
                                     onClick={() => setNewMediaUrl("")}
-                                    className="p-2 text-red-500 hover:bg-red-50 rounded"
+                                    className="p-3 text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
                                 >
-                                    <Trash2 size={18} />
+                                    <Trash2 size={20} />
                                 </button>
                             )}
                         </div>
-                        {newMediaUrl && newMediaUrl.startsWith('data:') && (
-                            <div className="mt-2 h-20 w-32 rounded border bg-gray-100 overflow-hidden shadow-inner">
-                                <img src={newMediaUrl} className="w-full h-full object-cover" alt="Passage thumb" />
-                            </div>
-                        )}
                     </div>
 
-                    <div className="mb-2">
-                        <label className="text-[10px] font-black text-slate-900 uppercase ml-1 mb-1 block">Passage Content *</label>
+                    <div className="space-y-2">
+                        <label className={`text-[10px] font-black uppercase tracking-widest ml-1 mb-1 block ${theme.text} opacity-70`}>Passage Content *</label>
                         <RichTextEditor 
                             content={newContent} 
                             onChange={setNewContent}
-                            placeholder="Write or paste your story here..."
+                            placeholder="Type or paste your story text here..."
                         />
                     </div>
 
-                    <div className="flex gap-2 justify-end pt-2 border-t mt-4">
-                        <button onClick={() => setMode('SELECT')} className="px-4 py-2 text-xs font-black text-slate-500 hover:text-slate-900 rounded uppercase tracking-widest">Cancel</button>
+                    <div className={`flex gap-3 justify-end pt-6 border-t mt-6 ${theme.border}`}>
+                        <button onClick={() => setMode('SELECT')} className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest opacity-60 hover:opacity-100 transition-all ${theme.text}`}>Cancel</button>
                         <button 
                             onClick={handleCreate} 
                             disabled={loading}
-                            className="px-6 py-2 text-xs font-black bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center gap-2 shadow-md uppercase tracking-widest transition-all"
+                            className={`px-8 py-2.5 text-xs font-black rounded-xl flex items-center gap-2 shadow-lg uppercase tracking-widest transition-all ${theme.accent}`}
                         >
-                            {loading ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
+                            {loading ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
                             Save & Attach
                         </button>
                     </div>

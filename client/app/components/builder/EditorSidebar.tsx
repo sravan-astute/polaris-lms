@@ -14,7 +14,8 @@ interface EditorSidebarProps {
 }
 
 export default function EditorSidebar({ question, onChange, onToggleGrade }: EditorSidebarProps) {
-  const { theme, mode } = useTheme();
+  // 🛠️ Destructure theme and themeKey for forced contrast logic
+  const { theme, themeKey } = useTheme();
 
   const grades = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
   
@@ -35,21 +36,22 @@ export default function EditorSidebar({ question, onChange, onToggleGrade }: Edi
   ];
 
   return (
-    <aside className={`w-80 border-r flex flex-col h-full overflow-y-auto ${theme.paper} ${theme.border}`}>
+    <aside className={`w-80 border-r flex flex-col h-full overflow-y-auto transition-colors duration-300 ${theme.paper} ${theme.border}`}>
       
       {/* 1. CLASSIFICATION */}
-      <div className="p-5 border-b border-dashed border-gray-200">
-        <h3 className="font-bold opacity-50 uppercase tracking-wider mb-4 flex items-center gap-2 text-xs">
+      <div className={`p-5 border-b border-dashed ${theme.border}`}>
+        <h3 className={`font-black uppercase tracking-widest mb-4 flex items-center gap-2 text-[10px] ${theme.text} opacity-60`}>
            <Type size={12} /> Classification
         </h3>
         
         <div className="space-y-4">
             <div>
-                <label className="font-bold opacity-70 mb-1.5 block">Subject <span className="text-red-500">*</span></label>
+                <label className={`text-[10px] font-black uppercase tracking-widest mb-1.5 block ${theme.text}`}>Subject <span className="text-red-500">*</span></label>
+                {/* 🛠️ Dropdown Visibility Fix */}
                 <select 
                     value={question.subject}
                     onChange={(e) => onChange("subject", e.target.value)}
-                    className={`w-full p-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-indigo-500/20 ${theme.input}`}
+                    className={`w-full p-2.5 rounded-xl border font-bold text-sm outline-none transition-all focus:ring-2 ${theme.input} ${theme.border} ${theme.text}`}
                 >
                     <option value="MATH">Mathematics</option>
                     <option value="ELA">ELA / Reading</option>
@@ -59,12 +61,13 @@ export default function EditorSidebar({ question, onChange, onToggleGrade }: Edi
             </div>
 
             <div>
-                <label className="font-bold opacity-70 mb-1.5 block">Item Type <span className="text-red-500">*</span></label>
+                <label className={`text-[10px] font-black uppercase tracking-widest mb-1.5 block ${theme.text}`}>Item Type <span className="text-red-500">*</span></label>
                 <div className="relative">
+                    {/* 🛠️ Dropdown Visibility Fix */}
                     <select 
                         value={question.type}
                         onChange={(e) => onChange("type", e.target.value as QuestionType)}
-                        className={`w-full p-2.5 rounded-lg border outline-none appearance-none cursor-pointer hover:bg-black/5 transition-colors ${theme.input}`}
+                        className={`w-full p-2.5 rounded-xl border font-bold text-sm outline-none appearance-none cursor-pointer transition-colors ${theme.input} ${theme.border} ${theme.text}`}
                     >
                         <optgroup label="Common">
                             <option value="MULTIPLE_CHOICE">Multiple Choice (Radio)</option>
@@ -80,7 +83,7 @@ export default function EditorSidebar({ question, onChange, onToggleGrade }: Edi
                             <option value="ORDERING">Ordering</option>
                         </optgroup>
                     </select>
-                    <div className="absolute right-3 top-3 opacity-50 pointer-events-none">
+                    <div className={`absolute right-3 top-3 opacity-40 pointer-events-none ${theme.text}`}>
                         <GripVertical size={14} />
                     </div>
                 </div>
@@ -89,36 +92,41 @@ export default function EditorSidebar({ question, onChange, onToggleGrade }: Edi
       </div>
 
       {/* 2. ALIGNMENT */}
-      <div className="p-5 border-b border-dashed border-gray-200">
-        <h3 className="font-bold opacity-50 uppercase tracking-wider mb-4 flex items-center gap-2 text-xs">
+      <div className={`p-5 border-b border-dashed ${theme.border}`}>
+        <h3 className={`font-black uppercase tracking-widest mb-4 flex items-center gap-2 text-[10px] ${theme.text} opacity-60`}>
            <BookOpen size={12} /> Alignment
         </h3>
 
         <div className="mb-4">
-            <label className="font-bold opacity-70 mb-2 block">Grade Level(s) <span className="text-red-500">*</span></label>
+            <label className={`text-[10px] font-black uppercase tracking-widest mb-2 block ${theme.text}`}>Grade Level(s) <span className="text-red-500">*</span></label>
             <div className="flex flex-wrap gap-1.5">
-                {grades.map(grade => (
-                    <button
-                        key={grade}
-                        onClick={() => onToggleGrade(grade)}
-                        className={`w-8 h-8 flex items-center justify-center font-bold rounded transition-all
-                            ${question.gradeLevels.includes(grade) 
-                                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/30 scale-105" 
-                                : `bg-gray-100 text-gray-500 hover:bg-gray-200 ${mode === 'dark' ? 'bg-gray-800' : ''}`}`}
-                    >
-                        {grade}
-                    </button>
-                ))}
+                {grades.map(grade => {
+                    const isActive = question.gradeLevels.includes(grade);
+                    return (
+                        <button
+                            key={grade}
+                            onClick={() => onToggleGrade(grade)}
+                            className={`w-9 h-9 flex items-center justify-center font-black text-xs rounded-xl border transition-all
+                                ${isActive 
+                                    ? `${theme.accent} shadow-md scale-110 z-10 border-transparent` 
+                                    : `${theme.border} ${theme.text} bg-transparent hover:bg-opacity-10 hover:bg-current`}`}
+                        /* ☝️ Logic: If not active, it's transparent with a themed border. 
+                        Text is always theme.text, so it's White in Midnight and Dark in Light. */
+                        >
+                            {grade}
+                        </button>
+                    );
+                })}
             </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
              <div>
-                <label className="font-bold opacity-70 mb-1 block">Difficulty</label>
+                <label className={`text-[10px] font-black uppercase tracking-widest mb-1 block ${theme.text}`}>Difficulty</label>
                 <select 
                     value={question.difficulty}
                     onChange={(e) => onChange("difficulty", e.target.value)}
-                    className={`w-full p-2 rounded border outline-none ${theme.input}`}
+                    className={`w-full p-2 rounded-lg border font-bold text-xs outline-none transition-all ${theme.input} ${theme.border} ${theme.text}`}
                 >
                     <option value="EASY">Easy</option>
                     <option value="MEDIUM">Medium</option>
@@ -126,14 +134,14 @@ export default function EditorSidebar({ question, onChange, onToggleGrade }: Edi
                 </select>
              </div>
              <div>
-                <label className="font-bold opacity-70 mb-1 block">Points</label>
+                <label className={`text-[10px] font-black uppercase tracking-widest mb-1 block ${theme.text}`}>Points</label>
                 <input 
                     type="number" 
                     min={1} 
                     max={20}
                     value={question.points}
                     onChange={(e) => onChange("points", parseInt(e.target.value) || 1)}
-                    className={`w-full p-2 rounded border outline-none ${theme.input}`}
+                    className={`w-full p-2 rounded-lg border font-black text-xs outline-none transition-all ${theme.input} ${theme.border} ${theme.text}`}
                 />
              </div>
         </div>
@@ -141,47 +149,56 @@ export default function EditorSidebar({ question, onChange, onToggleGrade }: Edi
 
       {/* 3. PEDAGOGY */}
       <div className="p-5">
-        <h3 className="font-bold opacity-50 uppercase tracking-wider mb-4 flex items-center gap-2 text-xs">
+        <h3 className={`font-black uppercase tracking-widest mb-4 flex items-center gap-2 text-[10px] ${theme.text} opacity-60`}>
            <BarChart3 size={12} /> Pedagogy
         </h3>
 
         <div className="space-y-3">
             <div>
-                <label className="font-bold opacity-70 mb-1 block">Bloom's Taxonomy</label>
+                <label className={`text-[10px] font-black uppercase tracking-widest mb-1 block ${theme.text}`}>Bloom's Taxonomy</label>
                 <select 
                     value={question.bloomsTaxonomy}
                     onChange={(e) => onChange("bloomsTaxonomy", e.target.value)}
-                    className={`w-full p-2 rounded border outline-none ${theme.input}`}
+                    className={`w-full p-2 rounded-lg border font-bold text-xs outline-none transition-all ${theme.input} ${theme.border} ${theme.text}`}
                 >
                     {bloomsOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
             </div>
 
             <div>
-                <label className="font-bold opacity-70 mb-1 block">Depth of Knowledge</label>
+                <label className={`text-[10px] font-black uppercase tracking-widest mb-1 block ${theme.text}`}>Depth of Knowledge</label>
                 <select 
                     value={question.dokLevel}
                     onChange={(e) => onChange("dokLevel", e.target.value)}
-                    className={`w-full p-2 rounded border outline-none ${theme.input}`}
+                    className={`w-full p-2 rounded-lg border font-bold text-xs outline-none transition-all ${theme.input} ${theme.border} ${theme.text}`}
                 >
                     {dokOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
             </div>
 
             {question.subject === 'MATH' && (
-                <div className={`flex items-center justify-between p-3 rounded border mt-4 ${theme.border} bg-gray-50/50`}>
-                    <div className="flex items-center gap-2">
-                        <Calculator size={14} className="text-indigo-600"/>
-                        <span className="font-bold opacity-80">Allow Calculator?</span>
+                <div className={`flex items-center justify-between p-4 rounded-xl border mt-6 transition-all duration-300
+                    ${theme.paper} ${theme.border}`}> 
+                    {/* ☝️ Logic: Uses theme.paper to match the sidebar background, ensuring no color conflict */}
+                    
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${themeKey === 'CONTRAST' ? 'bg-yellow-400 text-black' : theme.accent}`}>
+                            <Calculator size={18} />
+                        </div>
+                        <span className={`text-[11px] font-black uppercase tracking-widest ${theme.text}`}>
+                            Allow Calculator?
+                        </span>
                     </div>
+                    
                     <input 
                         type="checkbox" 
                         checked={question.calculator}
                         onChange={(e) => onChange("calculator", e.target.checked)}
-                        className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+                        /* 🛠️ Use accent color for the checkbox to ensure the checkmark is visible */
+                        className={`w-5 h-5 rounded-md cursor-pointer transition-all ${themeKey === 'CONTRAST' ? 'accent-yellow-400' : 'accent-indigo-600'}`}
                     />
                 </div>
-            )}
+            )}  
         </div>
       </div>
     </aside>

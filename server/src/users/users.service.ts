@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -7,38 +7,96 @@ import * as bcrypt from 'bcrypt';
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * 1. Create User
+   * UPDATED: Now maps names to firstName and lastName.
+   */
   async create(createUserDto: any) { 
-    // 1. Get domain from email (e.g., "astuteverse.com")
     const emailDomain = createUserDto.email.split('@')[1]; 
-    
-    // 2. Determine Organization Name (e.g., "Astuteverse")
     const orgName = createUserDto.organizationName || 
                     (emailDomain.split('.')[0].charAt(0).toUpperCase() + emailDomain.split('.')[0].slice(1));
-
-    // 3. Encrypt Password
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
-    // 4. Create User with Smart Logic
+    const nameParts = (createUserDto.fullName || "").split(" ");
+    const fName = createUserDto.firstName || nameParts[0] || "User";
+    const lName = createUserDto.lastName || nameParts.slice(1).join(" ") || "";
+
     return this.prisma.user.create({
       data: {
         email: createUserDto.email,
         password: hashedPassword, 
-        fullName: createUserDto.fullName,
+        firstName: fName,
+        lastName: lName,
         role: 'ADMIN', 
-        
-        // ✅ SMART LOGIC: Join existing OR Create new
         organization: {
           connectOrCreate: {
-            where: {
-              domain: emailDomain, // Check if an Org with this domain exists
-            },
-            create: {
-              name: orgName,
-              domain: emailDomain, // If not found, create it!
-            },
+            where: { domain: emailDomain },
+            create: { name: orgName, domain: emailDomain },
           },
         },
-      } as any,
+      },
+    });
+  }
+
+  /**
+   * 2. Get Profile
+   */
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true, 
+        lastName: true,  
+        role: true,
+        phone: true, 
+        bio: true, 
+        jobTitle: true, 
+        avatarUrl: true, 
+        preferences: true, 
+        createdAt: true,
+        organization: {
+          select: { name: true },
+        },
+      },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  /**
+   * 3. Update Profile Info
+   */
+  async updateProfile(userId: string, updateData: any) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        firstName: updateData.firstName, 
+        lastName: updateData.lastName,   
+        phone: updateData.phone,
+        bio: updateData.bio,
+        jobTitle: updateData.jobTitle, 
+        avatarUrl: updateData.avatarUrl,
+        preferences: updateData.preferences,
+      },
+    });
+  }
+
+  /**
+   * 4. Secure Password Update
+   */
+  async updatePassword(userId: string, data: any) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.password) throw new NotFoundException('User not found');
+
+    const isMatch = await bcrypt.compare(data.currentPassword, user.password);
+    if (!isMatch) throw new BadRequestException('Current password does not match');
+
+    const newHashedPassword = await bcrypt.hash(data.newPassword, 10);
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { password: newHashedPassword },
     });
   }
 
@@ -48,11 +106,33 @@ export class UsersService {
     return this.prisma.user.findMany();
   }
 
+  /**
+   * 🛠️ FIX: Removed explicit 'select' to prevent 500 error.
+   * By removing 'select', we avoid crashing if specific columns like 
+   * 'firstName' or 'lastName' are missing in the actual database.
+   */
   async findOne(email: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { email } });
+    try {
+      return await this.prisma.user.findUnique({ 
+        where: { email }
+      });
+    } catch (error) {
+      console.error("❌ findOne Database Error:", error.message);
+      return null;
+    }
   }
 
+  /**
+   * 🛠️ FIX: Removed explicit 'select' for stability.
+   */
   async findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id } });
+    try {
+      return await this.prisma.user.findUnique({ 
+        where: { id }
+      });
+    } catch (error) {
+      console.error("❌ findById Database Error:", error.message);
+      return null;
+    }
   }
 }

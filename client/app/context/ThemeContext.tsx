@@ -18,6 +18,7 @@ export interface Theme {
 }
 
 // --- THEME DEFINITIONS ---
+// 🛠️ Adjustments made to 'input' tokens to ensure text visibility in all 6 modes
 export const THEMES: Record<ThemeKey, Theme> = {
   LIGHT: { 
     label: "Polaris Light", 
@@ -27,7 +28,7 @@ export const THEMES: Record<ThemeKey, Theme> = {
     text: "text-slate-800", 
     border: "border-slate-200", 
     accent: "bg-indigo-600 text-white hover:bg-indigo-700",
-    input: "bg-white border-slate-300 focus:ring-indigo-500",
+    input: "bg-white border-slate-300 text-slate-800 focus:ring-indigo-500", // Added text color
     muted: "text-slate-500" 
   },
   DARK: { 
@@ -38,7 +39,7 @@ export const THEMES: Record<ThemeKey, Theme> = {
     text: "text-slate-100", 
     border: "border-slate-700", 
     accent: "bg-indigo-500 text-white hover:bg-indigo-600",
-    input: "bg-slate-800 border-slate-600 text-white focus:ring-indigo-400",
+    input: "bg-slate-800 border-slate-600 text-slate-100 focus:ring-indigo-400", // Standardized bg and text
     muted: "text-slate-400"
   },
   CONTRAST: { 
@@ -49,7 +50,7 @@ export const THEMES: Record<ThemeKey, Theme> = {
     text: "text-yellow-400", 
     border: "border-yellow-400", 
     accent: "bg-yellow-400 text-black font-bold hover:bg-yellow-500",
-    input: "bg-black border-yellow-400 text-yellow-300 focus:ring-yellow-500",
+    input: "bg-black border-yellow-400 text-yellow-400 focus:ring-yellow-500", // Standardized text color
     muted: "text-yellow-200"
   },
   SEPIA: { 
@@ -60,7 +61,7 @@ export const THEMES: Record<ThemeKey, Theme> = {
     text: "text-amber-900", 
     border: "border-amber-200", 
     accent: "bg-amber-700 text-white hover:bg-amber-800",
-    input: "bg-white border-amber-300 text-amber-900 focus:ring-amber-500",
+    input: "bg-orange-50 border-amber-300 text-amber-900 focus:ring-amber-500", // Matched paper bg
     muted: "text-amber-700/70"
   },
   BLUE: { 
@@ -82,7 +83,7 @@ export const THEMES: Record<ThemeKey, Theme> = {
     text: "text-emerald-50", 
     border: "border-emerald-700", 
     accent: "bg-emerald-500 text-white hover:bg-emerald-600",
-    input: "bg-emerald-800 border-emerald-600 text-emerald-50 focus:ring-emerald-400",
+    input: "bg-emerald-800 border-emerald-600 text-emerald-50 focus:ring-emerald-400", // Standardized bg and text
     muted: "text-emerald-300"
   }
 };
@@ -96,7 +97,7 @@ interface ThemeContextType {
   themeKey: ThemeKey;
   setThemeKey: (key: ThemeKey) => void;
   theme: Theme;
-  mode: 'light' | 'dark'; // 👈 Added this for compatibility
+  mode: 'light' | 'dark';
   fontStep: number;
   setFontStep: (step: number) => void;
   adjustFont: (dir: -1 | 1) => void;
@@ -135,16 +136,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  // 🧠 DERIVE MODE AUTOMATICALLY
-  // Light = Light, Sepia, Blue
-  // Dark = Dark, Contrast, Forest
   const mode: 'light' | 'dark' = ['DARK', 'CONTRAST', 'FOREST'].includes(themeKey) ? 'dark' : 'light';
 
   const value = {
     themeKey,
     setThemeKey,
     theme: THEMES[themeKey],
-    mode, // 👈 Pass it here
+    mode,
     fontStep,
     setFontStep,
     adjustFont,

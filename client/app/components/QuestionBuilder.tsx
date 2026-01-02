@@ -12,7 +12,7 @@ import EditorCanvas from "./builder/EditorCanvas";
 import StudentPreview from "./builder/StudentPreview";
 import PassageManager from "./builder/PassageManager";
 
-// --- TYPES ---
+// --- TYPES (Unchanged) ---
 export type QuestionType = 
   | "MULTIPLE_CHOICE" | "TRUE_FALSE" | "SHORT_ANSWER" | "MULTIPLE_SELECT"    
   | "FILL_IN_THE_BLANK" | "MATCHING" | "MATH_RESPONSE" | "ORDERING";          
@@ -48,7 +48,7 @@ export interface QuestionData {
   text: string; 
   options: Option[]; 
   explanation: string; 
-  reviewerNotes?: string; // 🛠️ Dedicated field for feedback
+  reviewerNotes?: string; 
   tags: string; 
   points: number;
   passageId?: string;
@@ -69,7 +69,7 @@ interface QuestionBuilderProps {
 export default function QuestionBuilder({ 
   quizId, initialData, onCancel, onQuestionAdded, onSave
 }: QuestionBuilderProps) {
-  const { theme } = useTheme();
+  const { theme, themeKey } = useTheme(); 
   const [mode, setMode] = useState<'EDIT' | 'PREVIEW'>('EDIT');
   const [isSaving, setIsSaving] = useState(false); 
 
@@ -78,7 +78,7 @@ export default function QuestionBuilder({
       type: "MULTIPLE_CHOICE", status: "DRAFT", bloomsTaxonomy: "REMEMBER",
       dokLevel: "LEVEL_1", calculator: false, text: "", mediaUrl: "",
       mediaType: "IMAGE", mediaAltText: "", tags: "", explanation: "", 
-      reviewerNotes: "", // 🛠️ Initialize field
+      reviewerNotes: "", 
       points: 1,
       options: [{ id: "1", text: "", isCorrect: false }, { id: "2", text: "", isCorrect: false }]
   };
@@ -90,7 +90,6 @@ export default function QuestionBuilder({
   };
 
   const [question, setQuestion] = useState<QuestionData>(() => {
-      // 🛠️ LOGIC FIX: Explicitly look inside the nested JSON 'data' field returned from server
       const notesFromData = (initialData as any)?.data?.reviewerNotes;
 
       return {
@@ -101,7 +100,6 @@ export default function QuestionBuilder({
           options: initialData?.options ?? defaultQuestion.options,
           code: initialData?.code || "",
           tags: formatTagsOnLoad(initialData?.tags), 
-          // 🛠️ Ensure we prioritize notes regardless of where they sit in the JSON response
           reviewerNotes: initialData?.reviewerNotes || notesFromData || "",
           passageId: initialData?.passageId || undefined,
           passage: initialData?.passage || undefined, 
@@ -208,13 +206,12 @@ export default function QuestionBuilder({
   const handleFinalSave = async (targetStatus: ContentStatus, resetAfter: boolean = false) => { 
     if ((targetStatus === 'PUBLISHED' || targetStatus === 'PENDING_REVIEW') && !validate()) return;
     if (targetStatus === 'DRAFT' && (!question.text || question.text === '<p></p>')) {
-         toast.error("Question text is required.");
-         return;
+          toast.error("Question text is required.");
+          return;
     }
     setIsSaving(true);
     try {
         if (onSave) {
-            // 🛠️ DATA INTEGRITY: Explicitly include reviewerNotes in the payload
             await onSave({ 
                 ...question, 
                 status: targetStatus,
@@ -242,73 +239,129 @@ export default function QuestionBuilder({
   };
 
   return (
-    <div className={`flex flex-col h-full transition-colors duration-300`}>
-      {/* Header */}
-      <header className={`flex items-center justify-between px-8 py-4 border-b shadow-sm ${theme.paper} ${theme.border}`}>
-        <div>
-          <div className="flex items-center gap-3">
-             <h1 className="font-bold">{initialData ? "Edit Item" : "Create New Item"}</h1>
-             <div className="text-xs font-mono bg-gray-100 border border-gray-300 rounded px-2 py-1 text-gray-600">
-                {question.code || "NEW"}
-             </div>
+    <div className={`flex flex-col h-full transition-colors duration-300 ${theme.bg} ${theme.text}`}>
+      {/* 🛠️ SLIM HEADER: text-sm (14px), 8% Tint, and Proper Case */}
+        <header className={`flex items-center justify-between px-8 py-3 border-b shadow-sm ${theme.paper} ${theme.border}`}>
+          <div>
+            <div className="flex items-center gap-3">
+                <h1 className={`font-black text-base ${theme.text}`}>{initialData ? "Edit item" : "Create new item"}</h1>
+                <div className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border transition-colors ${theme.input} ${theme.border}`}>
+                  {question.code || "NEW ITEM"}
+                </div>
+            </div>
+            <p className={`opacity-60 text-[10px] font-black tracking-tight`}>
+              {question.type.charAt(0) + question.type.slice(1).toLowerCase().replace(/_/g, " ")}
+            </p>
           </div>
-          <p className={`opacity-70 text-sm`}>{question.type.replace(/_/g, " ")}</p>
-        </div>
-        
-        <div className="flex items-center gap-4">
-           <div className={`flex p-1 rounded-lg border ml-8 ${theme.border} bg-black/5`}>
-             <button onClick={() => setMode('EDIT')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${mode === 'EDIT' ? 'bg-white shadow-sm text-indigo-600' : 'opacity-60 hover:opacity-100'}`}><Edit3 size={14} /> Edit</button>
-             <button onClick={() => setMode('PREVIEW')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${mode === 'PREVIEW' ? 'bg-white shadow-sm text-indigo-600' : 'opacity-60 hover:opacity-100'}`}><Eye size={14} /> Preview</button>
-           </div>
-        </div>
+          
+          <div className="flex items-center gap-4">
+              {/* Edit/Preview Toggle - Downsized to text-sm */}
+              <div className={`flex p-1 rounded-xl border transition-all ${theme.border} bg-black/5`}>
+                  <button 
+                    onClick={() => setMode('EDIT')} 
+                    className={`flex items-center gap-2 px-5 py-1.5 text-sm font-black rounded-lg transition-all duration-200
+                      ${mode === 'EDIT' 
+                        ? `${themeKey === 'CONTRAST' ? 'bg-yellow-400 text-black' : 'bg-indigo-600 text-white'} shadow-md` 
+                        : `${theme.text} hover:bg-current hover:bg-opacity-10`}`}
+                  >
+                    <Edit3 size={14} /> <span>Edit</span>
+                  </button>
 
-        <div className="flex items-center gap-3">
-           <Button variant="ghost" onClick={onCancel} disabled={isSaving} className={`hover:bg-current hover:bg-opacity-10 ${theme.text}`}>Cancel</Button>
-           
-           {!initialData && (
-               <Button variant="outline" onClick={() => handleFinalSave("DRAFT", true)} disabled={isSaving} className="border-indigo-200 text-indigo-600 hover:bg-indigo-50">
-                 <PlusSquare size={16} className="mr-2" /> Save & Add Another
-               </Button>
-           )}
+                  <button 
+                    onClick={() => setMode('PREVIEW')} 
+                    className={`flex items-center gap-2 px-5 py-1.5 text-sm font-black rounded-lg transition-all duration-200
+                      ${mode === 'PREVIEW' 
+                        ? `${themeKey === 'CONTRAST' ? 'bg-yellow-400 text-black' : 'bg-indigo-600 text-white'} shadow-md` 
+                        : `${theme.text} hover:bg-current hover:bg-opacity-10`}`}
+                  >
+                    <Eye size={14} /> <span>Preview</span>
+                  </button>
+              </div>
+          </div>
 
-           <Button variant="secondary" onClick={() => handleFinalSave("DRAFT")} disabled={isSaving} className={`border ${theme.border} hover:opacity-80`}>
-             {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : "Save Draft"}
-           </Button>
-           
-           {(question.status === 'DRAFT' || question.status === 'CHANGES_REQUESTED') && (
-               <Button onClick={() => handleFinalSave("PENDING_REVIEW")} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white border-none">
-                 {isSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Send size={16} className="mr-2" />}
-                 Submit for Review
-               </Button>
-           )}
+          <div className="flex items-center gap-2">
+              {/* Cancel */}
+              <Button 
+                variant="ghost" 
+                onClick={onCancel} 
+                disabled={isSaving} 
+                className={`px-4 py-2 rounded-xl border font-black text-sm tracking-normal transition-all active:scale-95 ${theme.border} ${theme.text} bg-current/[0.08] hover:bg-current/[0.08]`}
+              >
+                Cancel
+              </Button>
+              
+              {/* Save and repeat */}
+              {!initialData && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => handleFinalSave("DRAFT", true)} 
+                    disabled={isSaving} 
+                    className={`px-4 py-2 rounded-xl border font-black text-sm tracking-normal transition-all active:scale-95 ${theme.border} ${theme.text} bg-current/[0.08] hover:bg-current/[0.08]`}
+                  >
+                    <PlusSquare size={16} className="mr-2" /> Save and repeat
+                  </Button>
+              )}
 
-           {(question.status === 'APPROVED' || question.status === 'PUBLISHED') && (
-               <Button onClick={() => handleFinalSave("PUBLISHED")} disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-white border-none">
-                 {isSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <CheckCircle size={16} className="mr-2" />} 
-                 {question.status === 'PUBLISHED' ? 'Update Live' : 'Publish Now'}
-               </Button>
-           )}
-        </div>
-      </header>
+              {/* Save draft */}
+              <Button 
+                  variant="secondary" 
+                  onClick={() => handleFinalSave("DRAFT")} 
+                  disabled={isSaving} 
+                  className={`px-4 py-2 rounded-xl border font-black text-sm tracking-normal transition-all active:scale-95 ${theme.border} ${theme.text} bg-current/[0.08] hover:bg-current/[0.08]`}
+              >
+                  {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : "Save draft"}
+              </Button>
+              
+              {/* Submit / Publish (Highlighted) */}
+              {(question.status === 'DRAFT' || question.status === 'CHANGES_REQUESTED') && (
+                  <Button 
+                    onClick={() => handleFinalSave("PENDING_REVIEW")} 
+                    disabled={isSaving} 
+                    className={`px-5 py-2 rounded-xl border-none font-black text-sm tracking-normal transition-all shadow-md active:scale-95
+                      ${themeKey === 'CONTRAST' ? 'bg-yellow-400 text-black' : 'bg-blue-600 text-white'}`}
+                  >
+                    {isSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Send size={16} className="mr-2" />}
+                    Submit review
+                  </Button>
+              )}
+
+              {(question.status === 'APPROVED' || question.status === 'PUBLISHED') && (
+                  <Button 
+                    onClick={() => handleFinalSave("PUBLISHED")} 
+                    disabled={isSaving} 
+                    className={`px-5 py-2 rounded-xl border-none font-black text-sm tracking-normal transition-all shadow-md active:scale-95
+                      ${themeKey === 'CONTRAST' ? 'bg-yellow-400 text-black' : 'bg-green-600 text-white'}`}
+                  >
+                    {isSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <CheckCircle size={16} className="mr-2" />} 
+                    {question.status === 'PUBLISHED' ? 'Update live' : 'Publish item'}
+                  </Button>
+              )}
+          </div>
+        </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden flex">
+      <div className={`flex-1 overflow-hidden flex ${theme.bg}`}>
         {mode === 'EDIT' ? (
             <>
-                <EditorSidebar question={question} onChange={handleChange} onToggleGrade={toggleGrade} />
-                <main className={`flex-1 overflow-y-auto p-8`}>
-                    
+                <aside className={`border-r ${theme.paper} ${theme.border} h-full overflow-hidden flex flex-col`}>
+                   <EditorSidebar question={question} onChange={handleChange} onToggleGrade={toggleGrade} />
+                </aside>
+
+                <main className={`flex-1 overflow-y-auto p-8 transition-colors ${theme.bg}`}>
                     {isELASubject(question.subject) && (
-                        <PassageManager 
-                            selectedPassageId={question.passageId}
-                            onSelect={(id, title, content, mediaUrl) => {
-                                setQuestion(prev => ({ 
-                                    ...prev, 
-                                    passageId: id || undefined, 
-                                    passage: id ? { id, title, content, mediaUrl } : undefined 
-                                }));
-                            }}
-                        />
+                        /* 🛠️ Reading Passage Context - Fixed Container visibility */
+                        <div className={`mb-8 p-6 rounded-2xl border transition-all duration-300 shadow-sm ${theme.paper} ${theme.border}`}>
+                            <PassageManager 
+                                selectedPassageId={question.passageId}
+                                onSelect={(id, title, content, mediaUrl) => {
+                                    setQuestion(prev => ({ 
+                                        ...prev, 
+                                        passageId: id || undefined, 
+                                        passage: id ? { id, title, content, mediaUrl } : undefined 
+                                    }));
+                                }}
+                            />
+                        </div>
                     )}
 
                     <EditorCanvas 
@@ -326,7 +379,7 @@ export default function QuestionBuilder({
                 </main>
             </>
         ) : (
-            <main className={`flex-1 overflow-y-auto p-8`}>
+            <main className={`flex-1 overflow-y-auto p-8 transition-colors ${theme.bg}`}>
                 <StudentPreview question={question} onBack={() => setMode('EDIT')} />
             </main>
         )}

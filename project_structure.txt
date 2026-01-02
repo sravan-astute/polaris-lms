@@ -9,6 +9,7 @@
 │   │   │   │   ├── PassageManager.tsx
 │   │   │   │   └── StudentPreview.tsx
 │   │   │   ├── ClientLayout.tsx
+│   │   │   ├── DashboardHeader.tsx
 │   │   │   ├── New Text Document.txt
 │   │   │   ├── QuestionBuilder.tsx
 │   │   │   ├── QuizCard.tsx
@@ -23,8 +24,13 @@
 │   │   │   │   ├── ela
 │   │   │   │   │   └── page.tsx
 │   │   │   │   └── page.tsx
+│   │   │   ├── profile
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── UserProfileView.tsx
 │   │   │   ├── review
-│   │   │   │   └── page.tsx
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── ReviewDetailView.tsx
+│   │   │   ├── layout.tsx
 │   │   │   └── page.tsx
 │   │   ├── login
 │   │   │   └── page.tsx
@@ -94,6 +100,10 @@
 │   │   │   ├── 20251222064131_add_ela_passages
 │   │   │   │   └── migration.sql
 │   │   │   ├── 20251222070157_add_passage_media
+│   │   │   │   └── migration.sql
+│   │   │   ├── 20251223105018_add_profile_fields_and_tokens
+│   │   │   │   └── migration.sql
+│   │   │   ├── 20251224084955_split_user_names
 │   │   │   │   └── migration.sql
 │   │   │   └── migration_lock.toml
 │   │   ├── schema.prisma

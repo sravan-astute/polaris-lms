@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-// 👇 Make sure this points to the ClientLayout wrapper
 import ClientLayout from "./components/ClientLayout";
-import { Toaster } from "sonner"; // 👈 You had the import...
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,10 +20,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <ClientLayout>
-          {children}
+          {/* We removed the Sidebar and Header from here */}
+          {children} 
         </ClientLayout>
         
-        {/* 👇 ...but you missed adding the component here! */}
         <Toaster position="top-center" richColors />
       </body>
     </html>
