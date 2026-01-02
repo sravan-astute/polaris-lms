@@ -42,6 +42,11 @@ export class UsersService {
    * 2. Get Profile
    */
   async getProfile(userId: string) {
+    // 🛠️ Safety Check: If userId is missing, don't even call the DB
+    if (!userId) {
+      throw new BadRequestException('User ID is required to fetch profile');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -61,6 +66,7 @@ export class UsersService {
         },
       },
     });
+
     if (!user) throw new NotFoundException('User not found');
     return user;
   }

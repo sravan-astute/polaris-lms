@@ -8,13 +8,13 @@ import {
 import Link from "next/link";
 import { useTheme, THEMES, ThemeKey } from "../context/ThemeContext";
 
-// 🛠️ API URL for profile fetching
 const API_URL = 'https://polaris-backend-379760782242.us-east4.run.app';
 
 export default function DashboardHeader() {
   const { theme, themeKey, setThemeKey, fontStep, adjustFont } = useTheme();
   
-  const [user, setUser] = useState<{ name: string; role: string } | null>(null);
+  // 🛠️ Updated state to hold firstName and lastName
+  const [user, setUser] = useState<{ firstName: string; lastName: string; role: string } | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
 
@@ -23,35 +23,42 @@ export default function DashboardHeader() {
   }, []);
 
   const fetchUserData = async () => {
-  const token = localStorage.getItem('token');
-  if (!token) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
 
-  try {
-    const res = await fetch(`${API_URL}/auth/profile`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      setUser({
-        // 🛠️ Using the direct database field now
-        name: data.firstName || "User", 
-        role: data.role || "STUDENT"
+    try {
+      const res = await fetch(`${API_URL}/auth/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-    } else {
-      // 🛠️ Resolve the loading state if API fails
-      setUser({ name: "Profile", role: "STUDENT" });
+
+      if (res.ok) {
+        const data = await res.json();
+        setUser({
+          firstName: data.firstName || "User",
+          lastName: data.lastName || "",
+          role: data.role || "STUDENT"
+        });
+      } else {
+        // 🛠️ SAFETY: If the API fails (like that 500 error), stop "Loading..."
+        setUser({ firstName: "Profile", lastName: "", role: "STUDENT" });
+      }
+    } catch (e) {
+      // 🛠️ SAFETY: If offline, stop "Loading..."
+      setUser({ firstName: "Offline", lastName: "", role: "STUDENT" });
     }
-  } catch (e) {
-    // 🛠️ Resolve the loading state if connection fails
-    setUser({ name: "Offline", role: "STUDENT" });
-  }
-};
+  };
 
   const handleLogout = () => {
     localStorage.clear();
     document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     window.location.href = '/login';
+  };
+
+  const formatRole = (role: string) => {
+    return role
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   };
 
   return (
@@ -127,13 +134,13 @@ export default function DashboardHeader() {
         <div className="relative ml-2">
           <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="flex items-center gap-3 group">
             <div className="text-right hidden md:block">
-              {/* 🛠️ Dynamic name from database with font-bold */}
+              {/* 🛠️ Displays Full Name */}
               <p className={`text-sm font-bold leading-none ${theme.text}`}>
-                {user?.name || "Loading..."}
+                {user ? `${user.firstName} ${user.lastName}` : "Loading..."}
               </p>
-              {/* 🛠️ Role in Proper Case with font-medium */}
-              <p className={`text-[10px] font-medium mt-1 ${themeKey === 'CONTRAST' ? 'text-yellow-200' : 'text-indigo-600'}`}>
-                {user?.role ? user.role.charAt(0) + user.role.slice(1).toLowerCase().replace('_', ' ') : ""}
+              {/* 🛠️ Displays Role */}
+              <p className={`text-[10px] font-bold mt-1 uppercase tracking-wider ${themeKey === 'CONTRAST' ? 'text-yellow-200' : 'text-indigo-600'}`}>
+                {user?.role ? formatRole(user.role) : ""}
               </p>
             </div>
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-105 ${theme.accent.split(' ')[0]}`}>
@@ -144,6 +151,7 @@ export default function DashboardHeader() {
 
           {isMenuOpen && (
             <div className={`absolute right-0 mt-3 w-60 rounded-2xl shadow-2xl py-2 border z-50 animate-in fade-in slide-in-from-top-2 ${theme.paper} ${theme.border}`}>
+              {/* 🛠️ MY PROFILE LINK IS RESTORED HERE */}
               <Link 
                 href="/dashboard/profile" 
                 onClick={() => setIsMenuOpen(false)} 

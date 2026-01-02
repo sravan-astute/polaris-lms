@@ -1,4 +1,15 @@
-import { Body, Controller, Post, Res, HttpStatus, Get, UseGuards, Request, Patch } from '@nestjs/common';
+import { 
+  Body, 
+  Controller, 
+  Post, 
+  Res, 
+  HttpStatus, 
+  Get, 
+  UseGuards, 
+  Request, 
+  Patch,
+  UnauthorizedException // 🛠️ Added this to fix the "Cannot find name" error
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard'; 
 import { UsersService } from '../users/users.service'; 
@@ -42,13 +53,20 @@ export class AuthController {
 
   /**
    * 🛠️ GET PROFILE
-   * FIXED: Accesses 'sub' from the JWT payload to match AuthService logic.
+   * FIXED: Uses 'userId' because that is what your Strategy returns in the logs.
    */
   @UseGuards(JwtAuthGuard)
   @Get('profile')
   async getProfile(@Request() req: any) {
-    // 🛠️ FIX: Change userId to sub to match the JWT payload
-    const userId = req.user?.sub; 
+    // 🛠️ CRITICAL FIX: Change from req.user?.sub to req.user?.userId
+    // Your logs proved that the ID is stored in 'userId'
+    const userId = req.user?.userId; 
+    
+    if (!userId) {
+      // This will show up in your terminal if the ID is missing
+      throw new UnauthorizedException('User ID not found in request');
+    }
+
     return this.usersService.getProfile(userId);
   }
 
